@@ -18,26 +18,34 @@ model AdminUser {
 }
 
 model Product {
-  id               Int      @id @default(autoincrement())
-  name             String
-  slug             String   @unique
-  category         String   @default("app")
-  shortDescription String   @map("short_description")
-  longDescription  String   @default("") @map("long_description")
-  status           String   @default("coming_soon")
-  accessType       String   @default("public") @map("access_type")
-  featured         Boolean  @default(false)
-  primaryUrl       String   @default("") @map("primary_url")
-  hostedHere       Boolean  @default(false) @map("hosted_here")
-  sortOrder        Int      @default(99) @map("sort_order")
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
+  id                  Int      @id @default(autoincrement())
+  name                String
+  slug                String   @unique
+  category            String   @default("app")
+  shortDescription    String   @map("short_description")
+  longDescription     String   @default("") @map("long_description")
+  status              String   @default("coming_soon")
+  accessType          String   @default("public") @map("access_type")
+  featured            Boolean  @default(false)
+  primaryUrl          String   @default("") @map("primary_url")
+  hostedHere          Boolean  @default(false) @map("hosted_here")
+  hostingScope        String   @default("external_domain") @map("hosting_scope")
+  subdomain           String   @default("")
+  customDomain        String   @default("") @map("custom_domain")
+  environment         String   @default("production")
+  publicVisibility    Boolean  @default(true) @map("public_visibility")
+  monitoringEnabled   Boolean  @default(false) @map("monitoring_enabled")
+  integrationEnabled  Boolean  @default(false) @map("integration_enabled")
+  sortOrder           Int      @default(99) @map("sort_order")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
 
-  integration      AppIntegration?
-  metricDefinitions AppMetricDefinition[]
-  metricPoints     AppMetricPoint[]
-  events           AppEvent[]
-  widgetConfigs    DashboardWidgetConfig[]
+  integration         AppIntegration?
+  metricDefinitions   AppMetricDefinition[]
+  metricPoints        AppMetricPoint[]
+  events              AppEvent[]
+  widgetConfigs       DashboardWidgetConfig[]
+  vpsSnapshots        VpsResourceSnapshot[]
 
   @@map("products")
 }
@@ -61,8 +69,12 @@ model AppIntegration {
   heartbeatEnabled  Boolean   @default(true) @map("heartbeat_enabled")
   metricsEnabled    Boolean   @default(true) @map("metrics_enabled")
   eventsEnabled     Boolean   @default(true) @map("events_enabled")
+  vpsEnabled        Boolean   @default(false) @map("vps_enabled")
   lastHeartbeatAt   DateTime? @map("last_heartbeat_at")
   healthStatus      String    @default("unknown") @map("health_status")
+  uptime            Float?
+  version           String    @default("")
+  environment       String    @default("production")
   createdAt         DateTime  @default(now()) @map("created_at")
   updatedAt         DateTime  @updatedAt @map("updated_at")
 
@@ -111,6 +123,25 @@ model AppEvent {
   product   Product  @relation(fields: [productId], references: [id])
 
   @@map("app_events")
+}
+
+model VpsResourceSnapshot {
+  id          Int      @id @default(autoincrement())
+  productId   Int      @map("product_id")
+  cpuPercent  Float    @default(0) @map("cpu_percent")
+  ramPercent  Float    @default(0) @map("ram_percent")
+  ramUsedMb   Float    @default(0) @map("ram_used_mb")
+  ramTotalMb  Float    @default(0) @map("ram_total_mb")
+  diskPercent Float    @default(0) @map("disk_percent")
+  diskUsedGb  Float    @default(0) @map("disk_used_gb")
+  diskTotalGb Float    @default(0) @map("disk_total_gb")
+  netInKbps   Float    @default(0) @map("net_in_kbps")
+  netOutKbps  Float    @default(0) @map("net_out_kbps")
+  timestamp   DateTime @default(now())
+
+  product     Product  @relation(fields: [productId], references: [id])
+
+  @@map("vps_resource_snapshots")
 }
 
 model DashboardWidgetConfig {
