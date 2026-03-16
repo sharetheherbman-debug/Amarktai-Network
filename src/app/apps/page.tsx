@@ -191,6 +191,10 @@ function AppCard({ app, i }: { app: App; i: number }) {
       transition={{ duration: 0.4, delay: i * 0.06 }}
       whileHover={{ y: -6, transition: { duration: 0.2 } }}
       onClick={() => setExpanded(!expanded)}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpanded(!expanded) } }}
+      role="button"
+      tabIndex={0}
+      aria-expanded={expanded}
       className={`glass-card rounded-2xl p-6 flex flex-col gap-4 cursor-pointer border ${app.borderColor} bg-gradient-to-br ${app.gradient} group transition-all duration-300`}
       style={{ boxShadow: expanded ? `0 12px 40px ${app.glowColor}` : undefined }}
     >

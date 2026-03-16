@@ -24,6 +24,7 @@ export default function Header() {
   const router = useRouter()
   const hintTimerRef = useRef<NodeJS.Timeout | null>(null)
   const typedPhraseRef = useRef('')
+  const resetTimerRef = useRef<NodeJS.Timeout | null>(null)
   const isAdminPage = pathname.startsWith('/admin')
 
   useEffect(() => {
@@ -49,6 +50,9 @@ export default function Header() {
         hintTimerRef.current = setTimeout(() => setShowAdminHint(false), 8000)
         typedPhraseRef.current = ''
       }
+      // Reset partial phrase after 3s of inactivity
+      if (resetTimerRef.current) clearTimeout(resetTimerRef.current)
+      resetTimerRef.current = setTimeout(() => { typedPhraseRef.current = '' }, 3000)
     }
   }, [isAdminPage])
 
@@ -57,6 +61,7 @@ export default function Header() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
       if (hintTimerRef.current) clearTimeout(hintTimerRef.current)
+      if (resetTimerRef.current) clearTimeout(resetTimerRef.current)
     }
   }, [handleKeyDown])
 

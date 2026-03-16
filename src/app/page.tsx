@@ -99,6 +99,9 @@ export default function HomePage() {
   const heroY = useTransform(scrollYProgress, [0, 0.6], [0, -60])
   const heroScale = useTransform(scrollYProgress, [0, 0.6], [1, 0.95])
 
+  // Animated counter targets
+  const COUNTER_TARGETS = { apps: 8, year: 2025 } as const
+
   // Animated counter hook
   const [counters, setCounters] = useState({ apps: 0, year: 0 })
   const statsRef = useRef<HTMLDivElement>(null)
@@ -107,13 +110,13 @@ export default function HomePage() {
     if (statsInView) {
       const timer = setInterval(() => {
         setCounters(prev => ({
-          apps: Math.min(prev.apps + 1, 8),
-          year: prev.year < 2025 ? prev.year + 25 : 2025,
+          apps: Math.min(prev.apps + 1, COUNTER_TARGETS.apps),
+          year: prev.year < COUNTER_TARGETS.year ? prev.year + 25 : COUNTER_TARGETS.year,
         }))
       }, 60)
       return () => clearInterval(timer)
     }
-  }, [statsInView])
+  }, [statsInView, COUNTER_TARGETS.apps, COUNTER_TARGETS.year])
 
   return (
     <div className="min-h-screen bg-[#050816]">
