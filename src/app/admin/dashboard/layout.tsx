@@ -55,6 +55,11 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
           <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
         </span>
         <span className="text-xs text-emerald-400 font-mono">ALL SYSTEMS NOMINAL</span>
+        <div className="ml-auto flex gap-0.5 items-end">
+          {[8, 12, 6, 10, 7].map((h, b) => (
+            <div key={b} className="w-1 bg-emerald-500/70 rounded-sm" style={{ height: `${h}px` }} />
+          ))}
+        </div>
       </div>
 
       {/* Nav */}
