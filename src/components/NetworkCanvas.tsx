@@ -26,6 +26,11 @@ const COLORS = [
   'rgba(6,182,212,0.8)',    // teal
 ]
 
+/** Replace the alpha channel in an rgba(...) string */
+function withAlpha(color: string, alpha: number): string {
+  return color.replace(/[\d.]+\)$/, `${alpha})`)
+}
+
 export default function NetworkCanvas({ className = '' }: { className?: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const animRef = useRef<number>(0)
@@ -85,8 +90,8 @@ export default function NetworkCanvas({ className = '' }: { className?: string }
             const alpha = (1 - dist / maxDist) * 0.35
             ctx.beginPath()
             const grad = ctx.createLinearGradient(nodes[i].x, nodes[i].y, nodes[j].x, nodes[j].y)
-            grad.addColorStop(0, nodes[i].color.replace('0.9', String(alpha)).replace('0.8', String(alpha)).replace('0.7', String(alpha)))
-            grad.addColorStop(1, nodes[j].color.replace('0.9', String(alpha)).replace('0.8', String(alpha)).replace('0.7', String(alpha)))
+            grad.addColorStop(0, withAlpha(nodes[i].color, alpha))
+            grad.addColorStop(1, withAlpha(nodes[j].color, alpha))
             ctx.strokeStyle = grad
             ctx.lineWidth = 0.8
             ctx.moveTo(nodes[i].x, nodes[i].y)
@@ -100,7 +105,7 @@ export default function NetworkCanvas({ className = '' }: { className?: string }
       nodes.forEach(node => {
         // Outer glow
         const gradient = ctx.createRadialGradient(node.x, node.y, 0, node.x, node.y, node.radius * 4)
-        gradient.addColorStop(0, node.color.replace('0.9', '0.4').replace('0.8', '0.35').replace('0.7', '0.3'))
+        gradient.addColorStop(0, withAlpha(node.color, 0.4))
         gradient.addColorStop(1, 'transparent')
         ctx.beginPath()
         ctx.arc(node.x, node.y, node.radius * 4, 0, Math.PI * 2)

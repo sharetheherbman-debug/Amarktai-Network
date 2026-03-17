@@ -22,7 +22,7 @@ export default function MetricCard({ label, value, change, icon, className, suff
       {/* Corner glow */}
       <div className="absolute top-0 right-0 w-16 h-16 bg-blue-500/5 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
       <div className="flex items-center justify-between relative z-10">
-        <span className="text-xs font-medium text-slate-500 uppercase tracking-wider font-mono">{label}</span>
+        <span className="text-xs font-medium text-slate-400 uppercase tracking-wider font-mono">{label}</span>
         {icon && <div className="text-blue-400/70 group-hover:text-blue-400 transition-colors">{icon}</div>}
       </div>
       <div className="flex items-end justify-between relative z-10">

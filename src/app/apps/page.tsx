@@ -14,6 +14,9 @@ import Link from 'next/link'
 type AppStatus = 'invite_only' | 'in_development' | 'coming_soon' | 'live'
 type Category = 'all' | 'finance' | 'community' | 'education' | 'employment' | 'social' | 'security'
 
+const TILT_SPRING_CONFIG = { stiffness: 300, damping: 30 }
+const CARD_PERSPECTIVE = 800
+
 interface App {
   id: number
   name: string
@@ -187,8 +190,8 @@ function AppCard({ app, i }: { app: App; i: number }) {
   // 3D tilt effect
   const mouseX = useMotionValue(0)
   const mouseY = useMotionValue(0)
-  const rotateX = useSpring(useTransform(mouseY, [-0.5, 0.5], [8, -8]), { stiffness: 300, damping: 30 })
-  const rotateY = useSpring(useTransform(mouseX, [-0.5, 0.5], [-8, 8]), { stiffness: 300, damping: 30 })
+  const rotateX = useSpring(useTransform(mouseY, [-0.5, 0.5], [8, -8]), TILT_SPRING_CONFIG)
+  const rotateY = useSpring(useTransform(mouseX, [-0.5, 0.5], [-8, 8]), TILT_SPRING_CONFIG)
   const glowX = useTransform(mouseX, [-0.5, 0.5], ['0%', '100%'])
   const glowY = useTransform(mouseY, [-0.5, 0.5], ['0%', '100%'])
 
@@ -224,7 +227,7 @@ function AppCard({ app, i }: { app: App; i: number }) {
         rotateX,
         rotateY,
         transformStyle: 'preserve-3d' as const,
-        perspective: 800,
+        perspective: CARD_PERSPECTIVE,
         boxShadow: expanded ? `0 16px 50px ${app.glowColor}, 0 0 0 1px ${app.glowColor}` : undefined,
       }}
     >
