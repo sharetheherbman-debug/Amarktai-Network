@@ -191,7 +191,7 @@ const ecosystemApps = [
   {
     name: 'Learn Digital',
     tag: 'EdTech · AI',
-    description: 'Personalised AI learning journeys for Africa\'s digital economy.',
+    description: 'Personalized AI learning journeys for Africa\'s digital economy.',
     gradient: 'from-emerald-600 to-teal-500',
     letter: 'LD',
   },
