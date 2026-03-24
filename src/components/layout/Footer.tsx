@@ -27,7 +27,7 @@ export default function Footer() {
               </div>
             </Link>
             <p className="text-slate-500 text-sm leading-relaxed max-w-xs mb-6">
-              Designing and developing AI systems, applications, and intelligent automation platforms for a connected world.
+              The central nervous system for AI operations. Multi-model orchestration, shared memory, and intelligent automation across connected apps.
             </p>
             <div className="flex gap-2.5">
               {[

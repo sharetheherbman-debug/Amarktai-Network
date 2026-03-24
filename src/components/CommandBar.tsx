@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import { MessageSquare, X, Send, Bot, Lock, Zap } from 'lucide-react'
+import { getAppCount } from '@/lib/apps'
 
 type ChatState = 'idle' | 'awaiting-password' | 'authenticating' | 'success' | 'error'
 
@@ -15,9 +16,11 @@ interface Message {
 
 const WELCOME_MSG = `Hello! I'm the Amarktai AI assistant.\n\nType **help** for commands, or ask me anything about the platform.`
 
+import { getAppCount } from '@/lib/apps'
+
 const COMMANDS: Record<string, string> = {
   help: `Available commands:\n• **show admin** — access the control panel\n• **status** — system status\n• **apps** — view the ecosystem`,
-  status: `◈ All systems nominal\n◈ 8 platforms active\n◈ Network: ONLINE\n◈ AI layer: RUNNING`,
+  status: `◈ Amarktai Super Brain — operational shell ready\n◈ ${getAppCount()} apps in ecosystem\n◈ Network: ONLINE\n◈ AI orchestration: awaiting backend configuration`,
   apps: `__navigate:/apps__`,
 }
 
