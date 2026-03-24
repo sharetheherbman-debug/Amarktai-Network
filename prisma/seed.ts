@@ -399,7 +399,6 @@ async function main() {
 
   // ── API Keys ───────────────────────────────────────────────────────
   const apiKeys = [
-    { provider: 'OpenAI', label: 'GPT-4 Production', apiKey: 'sk-prod-••••••••••••••••••••', isActive: true },
     { provider: 'Anthropic', label: 'Claude API', apiKey: 'sk-ant-••••••••••••••••', isActive: true },
     { provider: 'Coinbase', label: 'Crypto Data Feed', apiKey: 'cb_••••••••••••••••••••', isActive: false },
   ]
@@ -408,6 +407,33 @@ async function main() {
     if (!exists) await prisma.apiKey.create({ data: k })
   }
   console.log('✅ API keys seeded')
+
+  // ── AI Provider Vault ─────────────────────────────────────────────
+  const aiProviders = [
+    { providerKey: 'openai',      displayName: 'OpenAI',       sortOrder: 1 },
+    { providerKey: 'gemini',      displayName: 'Google Gemini', sortOrder: 2 },
+    { providerKey: 'grok',        displayName: 'Grok / xAI',   sortOrder: 3 },
+    { providerKey: 'qwen',        displayName: 'Qwen',          sortOrder: 4 },
+    { providerKey: 'huggingface', displayName: 'Hugging Face',  sortOrder: 5 },
+    { providerKey: 'nvidia',      displayName: 'NVIDIA',        sortOrder: 6 },
+  ]
+  for (const p of aiProviders) {
+    await prisma.aiProvider.upsert({
+      where: { providerKey: p.providerKey },
+      update: { displayName: p.displayName, sortOrder: p.sortOrder },
+      create: {
+        providerKey: p.providerKey,
+        displayName: p.displayName,
+        enabled: false,
+        apiKey: '',
+        maskedPreview: '',
+        healthStatus: 'unconfigured',
+        healthMessage: 'No API key configured',
+        sortOrder: p.sortOrder,
+      },
+    })
+  }
+  console.log('✅ AI provider vault seeded (6 providers · all unconfigured)')
 
   console.log('\n✨ Seeding complete!')
   console.log('   Admin login: admin@amarktai.com / admin123!')

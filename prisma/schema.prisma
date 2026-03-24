@@ -186,3 +186,24 @@ model WaitlistEntry {
 
   @@map("waitlist_entries")
 }
+
+model AiProvider {
+  id            Int       @id @default(autoincrement())
+  providerKey   String    @unique @map("provider_key")   // openai | gemini | grok | qwen | huggingface | nvidia
+  displayName   String    @map("display_name")
+  enabled       Boolean   @default(false)
+  apiKey        String    @default("") @map("api_key")   // stored server-side only — never returned raw
+  maskedPreview String    @default("") @map("masked_preview") // e.g. sk-proj-••••••••••••abcd
+  baseUrl       String    @default("") @map("base_url")
+  defaultModel  String    @default("") @map("default_model")
+  fallbackModel String    @default("") @map("fallback_model")
+  healthStatus  String    @default("unconfigured") @map("health_status") // unconfigured|configured|healthy|degraded|error|disabled
+  healthMessage String    @default("") @map("health_message")
+  lastCheckedAt DateTime? @map("last_checked_at")
+  notes         String    @default("")
+  sortOrder     Int       @default(99) @map("sort_order")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@map("ai_providers")
+}

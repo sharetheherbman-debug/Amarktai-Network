@@ -1,0 +1,110 @@
+/**
+ * Amarktai Network — AI Provider Vault Utilities
+ *
+ * Server-side only helper functions for AI provider key masking and health checks.
+ * This file MUST NOT be imported from client components.
+ */
+
+/**
+ * Generate a safe masked preview of an API key.
+ * Shows prefix (up to 8 chars or up to the first '-') and last 4 chars.
+ * Example: "sk-proj-••••••••••••abcd"
+ */
+export function maskApiKey(key: string): string {
+  if (!key) return ''
+  const trimmed = key.trim()
+  if (trimmed.length <= 8) return '••••••••'
+  // Try to preserve the common prefix pattern (e.g. "sk-", "sk-proj-", "Bearer ")
+  const dashIdx = trimmed.lastIndexOf('-', 10) // search only the first ~10 chars for a prefix separator
+  const prefixLen = dashIdx > 0 ? dashIdx + 1 : Math.min(7, trimmed.length - 4)
+  const prefix = trimmed.substring(0, prefixLen)
+  const suffix = trimmed.slice(-4)
+  return `${prefix}${'•'.repeat(12)}${suffix}`
+}
+
+export interface HealthCheckResult {
+  status: 'healthy' | 'configured' | 'degraded' | 'error' | 'unconfigured' | 'disabled'
+  message: string
+}
+
+/**
+ * Run a live health check for the given provider.
+ * Returns a truthful status — never fakes healthy.
+ */
+export async function runProviderHealthCheck(
+  providerKey: string,
+  apiKey: string,
+  baseUrl: string,
+): Promise<HealthCheckResult> {
+  if (!apiKey) return { status: 'unconfigured', message: 'No API key configured' }
+
+  const timeout = 10_000 // 10 s
+
+  try {
+    switch (providerKey) {
+      case 'openai': {
+        const endpoint = `${baseUrl || 'https://api.openai.com'}/v1/models`
+        const res = await fetch(endpoint, {
+          headers: { Authorization: `Bearer ${apiKey}` },
+          signal: AbortSignal.timeout(timeout),
+        })
+        if (res.ok) return { status: 'healthy', message: 'Connected · models endpoint responding' }
+        if (res.status === 401) return { status: 'error', message: 'Invalid API key (401 Unauthorized)' }
+        if (res.status === 429) return { status: 'degraded', message: 'Rate limited (429) · key valid but quota exceeded' }
+        return { status: 'degraded', message: `HTTP ${res.status} from OpenAI models endpoint` }
+      }
+
+      case 'gemini': {
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`,
+          { signal: AbortSignal.timeout(timeout) },
+        )
+        if (res.ok) return { status: 'healthy', message: 'Connected · Gemini API responding' }
+        if (res.status === 400 || res.status === 403) return { status: 'error', message: 'Invalid API key' }
+        if (res.status === 429) return { status: 'degraded', message: 'Rate limited (429)' }
+        return { status: 'degraded', message: `HTTP ${res.status} from Gemini API` }
+      }
+
+      case 'grok': {
+        const endpoint = `${baseUrl || 'https://api.x.ai'}/v1/models`
+        const res = await fetch(endpoint, {
+          headers: { Authorization: `Bearer ${apiKey}` },
+          signal: AbortSignal.timeout(timeout),
+        })
+        if (res.ok) return { status: 'healthy', message: 'Connected · xAI API responding' }
+        if (res.status === 401) return { status: 'error', message: 'Invalid API key (401 Unauthorized)' }
+        if (res.status === 429) return { status: 'degraded', message: 'Rate limited (429)' }
+        return { status: 'degraded', message: `HTTP ${res.status} from xAI API` }
+      }
+
+      case 'huggingface': {
+        const res = await fetch('https://huggingface.co/api/whoami', {
+          headers: { Authorization: `Bearer ${apiKey}` },
+          signal: AbortSignal.timeout(timeout),
+        })
+        if (res.ok) return { status: 'healthy', message: 'Connected · Hugging Face API responding' }
+        if (res.status === 401) return { status: 'error', message: 'Invalid API key (401 Unauthorized)' }
+        return { status: 'degraded', message: `HTTP ${res.status} from Hugging Face API` }
+      }
+
+      case 'qwen':
+        // DashScope (Alibaba) requires a multi-step auth — return truthful configured state
+        return { status: 'configured', message: 'Key configured · live check not yet supported for Qwen' }
+
+      case 'nvidia':
+        // NVIDIA NIM API — reserved slot; return truthful configured state
+        return { status: 'configured', message: 'Key configured · live check not yet supported for NVIDIA NIM' }
+
+      default:
+        return { status: 'configured', message: 'Key configured · connectivity not validated' }
+    }
+  } catch (err) {
+    if (err instanceof Error) {
+      if (err.name === 'TimeoutError' || err.name === 'AbortError') {
+        return { status: 'degraded', message: 'Health check timed out (>10 s)' }
+      }
+      return { status: 'degraded', message: `Health check failed: ${err.message}` }
+    }
+    return { status: 'degraded', message: 'Health check failed: unknown error' }
+  }
+}
