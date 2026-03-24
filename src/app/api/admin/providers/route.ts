@@ -1,0 +1,75 @@
+import { NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
+import { getSession } from '@/lib/session'
+import { z } from 'zod'
+import { maskApiKey } from '@/lib/providers'
+
+const createSchema = z.object({
+  providerKey: z.string().min(1).max(50),
+  displayName: z.string().min(1).max(100),
+  enabled: z.boolean().default(false),
+  apiKey: z.string().default(''),
+  baseUrl: z.string().default(''),
+  defaultModel: z.string().default(''),
+  fallbackModel: z.string().default(''),
+  notes: z.string().default(''),
+  sortOrder: z.number().int().default(99),
+})
+
+/** GET /api/admin/providers — all providers, raw key NEVER returned */
+export async function GET() {
+  const session = await getSession()
+  if (!session.isLoggedIn) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const providers = await prisma.aiProvider.findMany({
+    orderBy: { sortOrder: 'asc' },
+    select: {
+      id: true,
+      providerKey: true,
+      displayName: true,
+      enabled: true,
+      maskedPreview: true,
+      baseUrl: true,
+      defaultModel: true,
+      fallbackModel: true,
+      healthStatus: true,
+      healthMessage: true,
+      lastCheckedAt: true,
+      notes: true,
+      sortOrder: true,
+      createdAt: true,
+      updatedAt: true,
+      // apiKey intentionally excluded
+    },
+  })
+  return NextResponse.json(providers)
+}
+
+/** POST /api/admin/providers — create a new provider (admin use only) */
+export async function POST(request: Request) {
+  const session = await getSession()
+  if (!session.isLoggedIn) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  try {
+    const body = await request.json()
+    const data = createSchema.parse(body)
+    const masked = maskApiKey(data.apiKey)
+    const provider = await prisma.aiProvider.create({
+      data: {
+        ...data,
+        maskedPreview: masked,
+        healthStatus: data.apiKey ? 'configured' : 'unconfigured',
+        healthMessage: data.apiKey ? 'Key configured · not yet tested' : 'No API key configured',
+      },
+    })
+    // Return without raw key
+    const { apiKey: _omit, ...safe } = provider
+    return NextResponse.json(safe, { status: 201 })
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: 'Invalid input', details: error.issues }, { status: 400 })
+    }
+    console.error('Create provider error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
