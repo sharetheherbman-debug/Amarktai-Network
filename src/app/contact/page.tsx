@@ -20,10 +20,9 @@ const REASONS = [
   { value: 'other', label: 'Something Else', icon: Globe },
 ]
 
-const PLATFORMS = [
-  'Amarktai Crypto', 'Amarktai Forex', 'Faith Haven',
-  'Learn Digital', 'Jobs SA', 'Kinship', 'Amarktai Secure', 'Crowd Lens',
-]
+import { getAppNames } from '@/lib/apps'
+
+const PLATFORMS = getAppNames()
 
 const inputCls = `w-full px-4 py-3.5 bg-white/[0.04] border border-white/10 rounded-xl text-sm text-white placeholder-slate-600
   focus:outline-none focus:border-blue-500/50 focus:bg-white/[0.06] transition-all duration-200 font-[inherit]`

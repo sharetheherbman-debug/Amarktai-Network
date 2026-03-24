@@ -2,13 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import {
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area
-} from 'recharts'
 import MetricCard from '@/components/ui/MetricCard'
 import {
   Package, Mail, Users, Plug, Activity, AlertCircle, CheckCircle, Clock,
-  Cpu, MemoryStick, HardDrive, Server
+  Cpu, MemoryStick, HardDrive, Server, BrainCircuit, MessageSquare, MonitorDot, Settings
 } from 'lucide-react'
 import { format } from 'date-fns'
 import Link from 'next/link'
@@ -81,12 +78,6 @@ const healthIcon = (status: string) => {
   }
 }
 
-const mockChartData = Array.from({ length: 14 }, (_, i) => ({
-  day: format(new Date(Date.now() - (13 - i) * 24 * 60 * 60 * 1000), 'MMM d'),
-  contacts: Math.floor(Math.random() * 8) + 1,
-  waitlist: Math.floor(Math.random() * 15) + 2,
-}))
-
 function VpsGauge({
   label, value, icon, color,
 }: {
@@ -147,15 +138,18 @@ export default function DashboardPage() {
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white" style={{ fontFamily: 'Space Grotesk' }}>Control Center</h1>
+          <h1 className="text-2xl font-bold text-white" style={{ fontFamily: 'Space Grotesk' }}>Super Brain Overview</h1>
           <p className="text-sm text-slate-400 mt-1 font-mono">amarktai.network / admin — real-time overview</p>
         </div>
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/5">
-          <span className="relative flex h-1.5 w-1.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
-          </span>
-          <span className="text-xs text-emerald-400 font-mono">LIVE</span>
+        <div className="flex flex-col items-end gap-1">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/5">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
+            </span>
+            <span className="text-xs text-emerald-400 font-mono">LIVE DATA</span>
+          </div>
+          <span className="text-[10px] text-slate-500 font-mono">Connected to admin API</span>
         </div>
       </div>
 
@@ -175,9 +169,55 @@ export default function DashboardPage() {
         </motion.div>
       </div>
 
+      {/* System Configuration Status */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.35 }}
+        className="glass rounded-2xl p-6"
+      >
+        <div className="flex items-center gap-2 mb-4">
+          <Settings className="w-4 h-4 text-slate-400" />
+          <h3 className="text-sm font-semibold text-white" style={{ fontFamily: 'Space Grotesk' }}>
+            System Configuration Status
+          </h3>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="flex items-start gap-3 p-3 rounded-xl bg-white/5">
+            <BrainCircuit className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-white">AI Providers</p>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Not configured yet — add providers in AI Providers section
+              </p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3 p-3 rounded-xl bg-white/5">
+            <MessageSquare className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-white">Brain Chat</p>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Ready for backend connection
+              </p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3 p-3 rounded-xl bg-white/5">
+            <MonitorDot className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-white">App Monitoring</p>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {monitoredApps.length > 0
+                  ? `${monitoredApps.length} app${monitoredApps.length === 1 ? '' : 's'} monitored`
+                  : 'No apps monitored yet'}
+              </p>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
       {/* VPS Resource Summary */}
       {monitoredApps.length > 0 && (
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <Server className="w-4 h-4 text-blue-400" />
@@ -241,37 +281,24 @@ export default function DashboardPage() {
         </motion.div>
       )}
 
-      {/* Charts */}
+      {/* Activity Chart + Product Health */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Activity Chart — Empty State */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
+          transition={{ delay: 0.45 }}
           className="glass rounded-2xl p-6"
         >
           <h3 className="text-sm font-semibold text-white mb-4" style={{ fontFamily: 'Space Grotesk' }}>
             Contacts & Waitlist (14 days)
           </h3>
-          <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={mockChartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-              <XAxis dataKey="day" tick={{ fontSize: 10, fill: '#64748b' }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 10, fill: '#64748b' }} axisLine={false} tickLine={false} />
-              <Tooltip
-                contentStyle={{ background: '#0B1020', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '8px', fontSize: '12px' }}
-                labelStyle={{ color: '#94a3b8' }}
-              />
-              <Area type="monotone" dataKey="contacts" stroke="#3B82F6" fill="rgba(59,130,246,0.1)" strokeWidth={2} />
-              <Area type="monotone" dataKey="waitlist" stroke="#06B6D4" fill="rgba(6,182,212,0.1)" strokeWidth={2} />
-            </AreaChart>
-          </ResponsiveContainer>
-          <div className="flex gap-4 mt-3">
-            <div className="flex items-center gap-1.5 text-xs text-slate-400">
-              <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />Contacts
-            </div>
-            <div className="flex items-center gap-1.5 text-xs text-slate-400">
-              <div className="w-2.5 h-2.5 rounded-full bg-cyan-400" />Waitlist
-            </div>
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <Activity className="w-10 h-10 text-slate-600 mb-3" />
+            <p className="text-sm font-medium text-slate-400">No chart data yet</p>
+            <p className="text-xs text-slate-500 mt-1.5 max-w-[260px]">
+              Activity chart will populate from real data once backend tracking is connected.
+            </p>
           </div>
         </motion.div>
 
