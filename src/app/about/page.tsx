@@ -5,6 +5,7 @@ import Header from '@/components/layout/Header'
 import Footer from '@/components/layout/Footer'
 import { Brain, Target, Globe, Zap, Shield, Users, ArrowRight, Network, Cpu, Layers, Sparkles } from 'lucide-react'
 import Link from 'next/link'
+import { getAppCount } from '@/lib/apps'
 
 const values = [
   { icon: Brain, title: 'Intelligence First', description: 'AI is not an afterthought. Every system, product, and platform we build has intelligence embedded at its core architecture.', color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20' },
@@ -19,16 +20,19 @@ const milestones = [
   { year: '2022', title: 'Foundation', description: 'Amarktai Network conceived as a vision to build Africa\'s premier AI technology ecosystem.', icon: Sparkles, color: 'from-blue-500 to-cyan-500' },
   { year: '2023', title: 'Architecture Phase', description: 'Deep research phase. Designing the intelligence layer, system architecture, and product roadmap.', icon: Brain, color: 'from-cyan-500 to-violet-500' },
   { year: '2024', title: 'Development Sprint', description: 'Full-scale development begins. Crypto and Forex enter closed beta. Core platform built.', icon: Cpu, color: 'from-violet-500 to-purple-500' },
-  { year: '2025', title: 'Ecosystem Launch', description: 'Phased launch of all platforms. Invitation access opens. Africa\'s AI ecosystem goes live.', icon: Zap, color: 'from-purple-500 to-blue-500' },
-]
-
-const pillars = [
-  { icon: Brain, title: 'AI Systems', desc: 'Proprietary intelligence models and inference pipelines that power every decision across the network.' },
-  { icon: Network, title: 'Connected Platforms', desc: 'Eight distinct products, one unified intelligence layer — each platform amplifies the others.' },
-  { icon: Layers, title: 'Full-Stack Ownership', desc: 'We own every layer: from model training to UI polish. No handoffs. No compromises.' },
+  { year: '2025', title: 'Platform Operational', description: 'Core platform architecture operational. First connected apps going live.', icon: Zap, color: 'from-purple-500 to-blue-500' },
+  { year: '2026', title: 'Super Brain Phase', description: 'AI orchestration, multi-model routing, and shared intelligence layer in active development.', icon: Network, color: 'from-blue-500 to-cyan-500' },
 ]
 
 export default function AboutPage() {
+  const appCount = getAppCount()
+
+  const pillars = [
+    { icon: Cpu, title: 'AI Command Center', desc: 'Multi-model orchestration, shared memory, real-time monitoring, and automation — the central nervous system powering every connected app.' },
+    { icon: Network, title: 'Connected Ecosystem', desc: `${appCount} connected apps, one unified intelligence layer — each platform feeds data and context back into the Super Brain.` },
+    { icon: Layers, title: 'Full-Stack Ownership', desc: 'We own every layer: from model routing to UI polish. No handoffs. No compromises.' },
+  ]
+
   return (
     <div className="min-h-screen bg-[#050816]">
       <Header />
@@ -59,9 +63,9 @@ export default function AboutPage() {
           >
             <span className="text-white">We Build</span>
             <br />
-            <span className="gradient-text">Digital</span>
+            <span className="gradient-text">Intelligence</span>
             <br />
-            <span className="text-white/70 font-light">Ecosystems</span>
+            <span className="text-white/70 font-light">Systems</span>
           </motion.h1>
           <motion.p
             initial={{ opacity: 0, y: 20 }}
@@ -69,7 +73,7 @@ export default function AboutPage() {
             transition={{ duration: 0.7, delay: 0.3 }}
             className="text-lg text-slate-400 max-w-2xl mx-auto leading-relaxed"
           >
-            Amarktai Network is not a single product company. We are an interconnected ecosystem of AI-powered platforms, each designed to redefine its domain and amplify the others.
+            Amarktai Network is the central nervous system and AI command center for all connected apps — the Super Brain that orchestrates, monitors, and powers an entire ecosystem of intelligent platforms.
           </motion.p>
         </div>
       </section>
@@ -88,15 +92,15 @@ export default function AboutPage() {
                 Who We Are
               </div>
               <h2 className="text-4xl lg:text-5xl font-extrabold text-white mb-6" style={{ fontFamily: 'Space Grotesk' }}>
-                The Headquarters of an{' '}
-                <span className="gradient-text-blue-cyan">Advanced</span>{' '}
-                Digital Ecosystem
+                The{' '}
+                <span className="gradient-text-blue-cyan">Super Brain</span>{' '}
+                Behind the Ecosystem
               </h2>
               <p className="text-slate-400 leading-relaxed mb-5">
-                Amarktai Network is a technology company headquartered in the vision of building Africa&apos;s most sophisticated AI ecosystem. We design, develop, and deploy intelligent systems that solve real problems at scale.
+                Amarktai Network is the central nervous system for AI operations across every connected app in our ecosystem. We handle multi-model orchestration, shared memory, real-time monitoring, and intelligent automation — so each app operates with the full power of the network behind it.
               </p>
               <p className="text-slate-400 leading-relaxed mb-8">
-                We are not building a product. We are building a network — a constellation of interconnected platforms, each powered by our proprietary AI intelligence layer, each serving a distinct domain, each amplifying the others.
+                Built from Africa, engineered to a premium global standard. We are not building another AI wrapper — we are building the operations platform that makes an entire constellation of {appCount} intelligent apps think, learn, and act as one.
               </p>
               <Link href="/apps" className="btn-primary group inline-flex">
                 View the Ecosystem
