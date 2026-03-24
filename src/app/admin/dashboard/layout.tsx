@@ -7,17 +7,58 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   LayoutDashboard, Package, Key, Plug, Mail, Users, LogOut,
   Zap, Menu, X, ChevronRight, Server, Activity, Shield,
+  Brain, MessageSquare, Bell, FileText, Settings,
 } from 'lucide-react'
 
-const navItems = [
-  { href: '/admin/dashboard', label: 'Overview', icon: LayoutDashboard, color: 'text-blue-400' },
-  { href: '/admin/dashboard/products', label: 'Products', icon: Package, color: 'text-cyan-400' },
-  { href: '/admin/dashboard/api-keys', label: 'API Keys', icon: Key, color: 'text-violet-400' },
-  { href: '/admin/dashboard/integrations', label: 'Integrations', icon: Plug, color: 'text-emerald-400' },
-  { href: '/admin/dashboard/vps', label: 'VPS Monitor', icon: Server, color: 'text-amber-400' },
-  { href: '/admin/dashboard/contacts', label: 'Contacts', icon: Mail, color: 'text-pink-400' },
-  { href: '/admin/dashboard/waitlist', label: 'Waitlist', icon: Users, color: 'text-indigo-400' },
+interface NavItem {
+  href: string
+  label: string
+  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>
+  color: string
+}
+
+interface NavGroup {
+  label: string
+  items: NavItem[]
+}
+
+const navGroups: NavGroup[] = [
+  {
+    label: 'Operations',
+    items: [
+      { href: '/admin/dashboard', label: 'Overview', icon: LayoutDashboard, color: 'text-blue-400' },
+      { href: '/admin/dashboard/products', label: 'Connected Apps', icon: Package, color: 'text-cyan-400' },
+      { href: '/admin/dashboard/integrations', label: 'App Registry', icon: Plug, color: 'text-emerald-400' },
+    ],
+  },
+  {
+    label: 'AI & Intelligence',
+    items: [
+      { href: '/admin/dashboard/ai-providers', label: 'AI Providers', icon: Brain, color: 'text-violet-400' },
+      { href: '/admin/dashboard/ai-usage', label: 'AI Usage', icon: Activity, color: 'text-blue-400' },
+      { href: '/admin/dashboard/brain-chat', label: 'Brain Chat', icon: MessageSquare, color: 'text-cyan-400' },
+    ],
+  },
+  {
+    label: 'Monitoring',
+    items: [
+      { href: '/admin/dashboard/vps', label: 'VPS Monitoring', icon: Server, color: 'text-amber-400' },
+      { href: '/admin/dashboard/alerts', label: 'Alerts', icon: Bell, color: 'text-red-400' },
+      { href: '/admin/dashboard/events', label: 'Events & Logs', icon: FileText, color: 'text-slate-400' },
+    ],
+  },
+  {
+    label: 'Administration',
+    items: [
+      { href: '/admin/dashboard/api-keys', label: 'API Keys', icon: Key, color: 'text-violet-400' },
+      { href: '/admin/dashboard/config', label: 'Configuration', icon: Settings, color: 'text-slate-400' },
+      { href: '/admin/dashboard/contacts', label: 'Contacts', icon: Mail, color: 'text-pink-400' },
+      { href: '/admin/dashboard/waitlist', label: 'Waitlist', icon: Users, color: 'text-indigo-400' },
+    ],
+  },
 ]
+
+const allNavItems = navGroups.flatMap((g) => g.items)
 
 function SidebarContent({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname()
@@ -43,7 +84,7 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
             <p className="text-sm font-bold text-white" style={{ fontFamily: 'Space Grotesk' }}>
               <span className="gradient-text-blue-cyan">Amarktai</span>
             </p>
-            <p className="text-[10px] text-slate-500 font-mono tracking-widest uppercase">Control Center</p>
+            <p className="text-[10px] text-slate-500 font-mono tracking-widest uppercase">Super Brain</p>
           </div>
         </Link>
       </div>
@@ -54,7 +95,7 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
           <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
         </span>
-        <span className="text-xs text-emerald-400 font-mono">ALL SYSTEMS NOMINAL</span>
+        <span className="text-xs text-emerald-400 font-mono">COMMAND CENTER ACTIVE</span>
         <div className="ml-auto flex gap-0.5 items-end">
           {[8, 12, 6, 10, 7].map((h, b) => (
             <div key={b} className="w-1 bg-emerald-500/70 rounded-sm" style={{ height: `${h}px` }} />
@@ -63,27 +104,35 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 p-4 space-y-0.5 mt-2">
-        <p className="text-[10px] text-slate-600 font-mono tracking-widest uppercase px-3 mb-2">Navigation</p>
-        {navItems.map((item) => {
-          const active = pathname === item.href
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={onClose}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group ${
-                active
-                  ? 'bg-blue-500/12 text-white border border-blue-500/20'
-                  : 'text-slate-500 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              <item.icon className={`w-4 h-4 flex-shrink-0 ${active ? item.color : 'group-hover:' + item.color.replace('text-', 'text-')}`} />
-              <span className="flex-1">{item.label}</span>
-              {active && <ChevronRight className="w-3 h-3 text-blue-400" />}
-            </Link>
-          )
-        })}
+      <nav className="flex-1 p-4 mt-2 overflow-y-auto">
+        {navGroups.map((group) => (
+          <div key={group.label} className="mb-4">
+            <p className="text-[10px] text-slate-600 font-mono tracking-widest uppercase px-3 mb-2">
+              {group.label}
+            </p>
+            <div className="space-y-0.5">
+              {group.items.map((item) => {
+                const active = pathname === item.href
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={onClose}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group ${
+                      active
+                        ? 'bg-blue-500/12 text-white border border-blue-500/20'
+                        : 'text-slate-500 hover:text-white hover:bg-white/5'
+                    }`}
+                  >
+                    <item.icon className={`w-4 h-4 flex-shrink-0 ${active ? item.color : 'group-hover:' + item.color}`} />
+                    <span className="flex-1">{item.label}</span>
+                    {active && <ChevronRight className="w-3 h-3 text-blue-400" />}
+                  </Link>
+                )
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
 
       {/* Footer */}
@@ -112,7 +161,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
-  const currentPage = navItems.find(n => n.href === pathname)
+  const currentPage = allNavItems.find((n) => n.href === pathname)
 
   return (
     <div className="min-h-screen bg-[#050816] flex">
