@@ -13,7 +13,7 @@ import {
   BellOff,
 } from 'lucide-react'
 
-const severityLevend = [
+const severityLegend = [
   {
     level: 'Critical',
     color: 'bg-red-500',
@@ -107,7 +107,7 @@ export default function AlertsPage() {
           Alert Severity Levels
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {severityLevend.map((item, i) => {
+          {severityLegend.map((item, i) => {
             const Icon = item.icon
             return (
               <motion.div

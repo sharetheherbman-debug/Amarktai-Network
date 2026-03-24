@@ -469,6 +469,7 @@ export default function HomePage() {
               >
                 <div
                   className={`w-14 h-14 rounded-2xl glass flex items-center justify-center mb-6 ${item.color}`}
+
                 >
                   <item.icon size={24} />
                 </div>
