@@ -158,6 +158,30 @@ function AppDrawer({ app, onClose }: { app: AppRecord; onClose: () => void }) {
             )}
           </div>
 
+          {/* App credentials */}
+          <div>
+            <p className="text-xs text-slate-500 mb-2 font-medium uppercase tracking-wide">App Credentials</p>
+            <div className="bg-white/[0.03] border border-white/8 rounded-lg p-3 space-y-3">
+              <div>
+                <p className="text-xs text-slate-500 mb-1">App ID (slug)</p>
+                <CopyToken token={app.slug} />
+                <p className="text-[11px] text-slate-600 mt-1">The unique app identifier. Used as <span className="font-mono">appId</span> in brain requests.</p>
+              </div>
+              {app.appSecret ? (
+                <div>
+                  <p className="text-xs text-slate-500 mb-1">App Secret</p>
+                  <CopyToken token={app.appSecret} />
+                  <p className="text-[11px] text-slate-600 mt-1">Keep secret. Used as <span className="font-mono">appSecret</span> in brain requests. Rotate if compromised.</p>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-xs text-slate-500 mb-1">App Secret</p>
+                  <p className="text-xs text-amber-400">No app secret set — this app cannot authenticate with the brain gateway.</p>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* App details */}
           <div>
             <p className="text-xs text-slate-500 mb-2 font-medium uppercase tracking-wide">Details</p>

@@ -118,9 +118,12 @@ export async function authenticateApp(appId: string, appSecret: string): Promise
 function defaultModelFor(providerKey: string): string {
   switch (providerKey) {
     case 'openai':      return 'gpt-4o-mini'
+    case 'groq':        return 'llama-3.3-70b-versatile'
+    case 'deepseek':    return 'deepseek-chat'
+    case 'openrouter':  return 'openai/gpt-4o-mini'
+    case 'together':    return 'meta-llama/Llama-3-70b-chat-hf'
     case 'gemini':      return 'gemini-1.5-flash'
     case 'grok':        return 'grok-2-latest'
-    case 'qwen':        return 'qwen-max'
     case 'huggingface': return 'meta-llama/Llama-3-8b-chat-hf'
     case 'nvidia':      return 'nvidia/llama-3.1-nemotron-70b-instruct'
     default:            return 'unknown'
@@ -166,13 +169,34 @@ export async function callProvider(
 
   try {
     switch (providerKey) {
-      // ── OpenAI & Grok share the OpenAI-compatible chat completions API ─────
+      // ── OpenAI-compatible: OpenAI, Groq, DeepSeek, OpenRouter, Together AI, xAI/Grok ──
       case 'openai':
+      case 'groq':
+      case 'deepseek':
+      case 'openrouter':
+      case 'together':
       case 'grok': {
-        const base = vault.baseUrl || (providerKey === 'grok' ? 'https://api.x.ai' : 'https://api.openai.com')
+        const baseMap: Record<string, string> = {
+          openai:     'https://api.openai.com',
+          groq:       'https://api.groq.com/openai',
+          deepseek:   'https://api.deepseek.com',
+          openrouter: 'https://openrouter.ai/api',
+          together:   'https://api.together.xyz',
+          grok:       'https://api.x.ai',
+        }
+        const base = vault.baseUrl || baseMap[providerKey] || 'https://api.openai.com'
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${vault.apiKey}`,
+        }
+        // OpenRouter requires a site URL header
+        if (providerKey === 'openrouter') {
+          headers['HTTP-Referer'] = 'https://amarktai.network'
+          headers['X-Title'] = 'AmarktAI Network'
+        }
         const res = await fetch(`${base}/v1/chat/completions`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${vault.apiKey}` },
+          headers,
           body: JSON.stringify({
             model: resolvedModel,
             messages: [{ role: 'user', content: message }],
@@ -203,26 +227,6 @@ export async function callProvider(
         }
         const data = await res.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> }
         const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? null
-        return { ok: true, output: text, error: null, latencyMs: Date.now() - start, model: resolvedModel, providerKey }
-      }
-
-      // ── Qwen (DashScope) ────────────────────────────────────────────────────
-      case 'qwen': {
-        const base = vault.baseUrl || 'https://dashscope.aliyuncs.com/api/v1'
-        const res = await fetch(`${base}/services/aigc/text-generation/generation`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${vault.apiKey}` },
-          body: JSON.stringify({
-            model: resolvedModel,
-            input: { messages: [{ role: 'user', content: message }] },
-          }),
-          signal: AbortSignal.timeout(timeout),
-        })
-        if (!res.ok) {
-          return { ok: false, output: null, error: `Qwen HTTP ${res.status}`, latencyMs: Date.now() - start, model: resolvedModel, providerKey }
-        }
-        const data = await res.json() as { output?: { text?: string; choices?: Array<{ message?: { content?: string } }> } }
-        const text = data?.output?.text ?? data?.output?.choices?.[0]?.message?.content ?? null
         return { ok: true, output: text, error: null, latencyMs: Date.now() - start, model: resolvedModel, providerKey }
       }
 

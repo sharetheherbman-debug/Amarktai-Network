@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/session'
 import { z } from 'zod'
+import { randomBytes } from 'crypto'
 
 const productSchema = z.object({
   name: z.string().min(1).max(200),
@@ -50,6 +51,12 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const data = productSchema.parse(body)
+
+    // Auto-generate a secure appSecret if one wasn't provided
+    if (!data.appSecret) {
+      data.appSecret = randomBytes(32).toString('hex')
+    }
+
     const product = await prisma.product.create({ data })
     return NextResponse.json(product, { status: 201 })
   } catch (error) {

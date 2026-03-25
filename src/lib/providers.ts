@@ -54,6 +54,59 @@ export async function runProviderHealthCheck(
         return { status: 'degraded', message: `HTTP ${res.status} from OpenAI models endpoint` }
       }
 
+      case 'groq': {
+        const endpoint = `${baseUrl || 'https://api.groq.com/openai'}/v1/models`
+        const res = await fetch(endpoint, {
+          headers: { Authorization: `Bearer ${apiKey}` },
+          signal: AbortSignal.timeout(timeout),
+        })
+        if (res.ok) return { status: 'healthy', message: 'Connected · Groq API responding' }
+        if (res.status === 401) return { status: 'error', message: 'Invalid API key (401 Unauthorized)' }
+        if (res.status === 429) return { status: 'degraded', message: 'Rate limited (429)' }
+        return { status: 'degraded', message: `HTTP ${res.status} from Groq API` }
+      }
+
+      case 'deepseek': {
+        const endpoint = `${baseUrl || 'https://api.deepseek.com'}/v1/models`
+        const res = await fetch(endpoint, {
+          headers: { Authorization: `Bearer ${apiKey}` },
+          signal: AbortSignal.timeout(timeout),
+        })
+        if (res.ok) return { status: 'healthy', message: 'Connected · DeepSeek API responding' }
+        if (res.status === 401) return { status: 'error', message: 'Invalid API key (401 Unauthorized)' }
+        if (res.status === 402) return { status: 'error', message: 'Insufficient balance (402)' }
+        if (res.status === 429) return { status: 'degraded', message: 'Rate limited (429)' }
+        return { status: 'degraded', message: `HTTP ${res.status} from DeepSeek API` }
+      }
+
+      case 'openrouter': {
+        const endpoint = `${baseUrl || 'https://openrouter.ai/api'}/v1/models`
+        const res = await fetch(endpoint, {
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            'HTTP-Referer': 'https://amarktai.network',
+            'X-Title': 'AmarktAI Network',
+          },
+          signal: AbortSignal.timeout(timeout),
+        })
+        if (res.ok) return { status: 'healthy', message: 'Connected · OpenRouter API responding' }
+        if (res.status === 401) return { status: 'error', message: 'Invalid API key (401 Unauthorized)' }
+        if (res.status === 429) return { status: 'degraded', message: 'Rate limited (429)' }
+        return { status: 'degraded', message: `HTTP ${res.status} from OpenRouter API` }
+      }
+
+      case 'together': {
+        const endpoint = `${baseUrl || 'https://api.together.xyz'}/v1/models`
+        const res = await fetch(endpoint, {
+          headers: { Authorization: `Bearer ${apiKey}` },
+          signal: AbortSignal.timeout(timeout),
+        })
+        if (res.ok) return { status: 'healthy', message: 'Connected · Together AI API responding' }
+        if (res.status === 401) return { status: 'error', message: 'Invalid API key (401 Unauthorized)' }
+        if (res.status === 429) return { status: 'degraded', message: 'Rate limited (429)' }
+        return { status: 'degraded', message: `HTTP ${res.status} from Together AI API` }
+      }
+
       case 'gemini': {
         const res = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`,
@@ -87,13 +140,9 @@ export async function runProviderHealthCheck(
         return { status: 'degraded', message: `HTTP ${res.status} from Hugging Face API` }
       }
 
-      case 'qwen':
-        // DashScope (Alibaba) requires a multi-step auth — return truthful configured state
-        return { status: 'configured', message: 'Key configured · live check not yet supported for Qwen' }
-
       case 'nvidia':
-        // NVIDIA NIM API — reserved slot; return truthful configured state
-        return { status: 'configured', message: 'Key configured · live check not yet supported for NVIDIA NIM' }
+        // NVIDIA NIM — key can be validated but models list requires explicit access
+        return { status: 'configured', message: 'Key configured · use Gateway Test to validate live inference' }
 
       default:
         return { status: 'configured', message: 'Key configured · connectivity not validated' }

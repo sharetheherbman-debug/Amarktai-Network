@@ -9,7 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   LayoutDashboard, Key, Plug, Mail, Users, LogOut,
   Menu, X, ChevronRight, Server, Activity, Shield,
-  Brain, MessageSquare, Bell, FileText, AppWindow,
+  Brain, MessageSquare, Bell, FileText, AppWindow, BookOpen,
 } from 'lucide-react'
 
 interface NavItem {
@@ -39,6 +39,7 @@ const navGroups: NavGroup[] = [
       { href: '/admin/dashboard/ai-providers', label: 'AI Providers', icon: Brain, color: 'text-violet-400' },
       { href: '/admin/dashboard/ai-usage', label: 'AI Usage', icon: Activity, color: 'text-blue-400' },
       { href: '/admin/dashboard/brain-chat', label: 'Gateway Test', icon: MessageSquare, color: 'text-cyan-400' },
+      { href: '/admin/dashboard/learning', label: 'Learning', icon: BookOpen, color: 'text-emerald-400' },
     ],
   },
   {
