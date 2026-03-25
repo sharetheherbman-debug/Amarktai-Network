@@ -25,6 +25,8 @@ import NetworkCanvas from '@/components/NetworkCanvas'
 
 // ─── Execution flow data ────────────────────────────────────────────────────
 
+const STEP_DURATION_MS = 1200
+
 const EXECUTION_STEPS = [
   'AmarktAI analyzing request...',
   'AmarktAI building execution path...',
@@ -156,9 +158,9 @@ export default function HomePage() {
     setCompletedSteps([])
     setDone(false)
 
-    // Advance steps: step i completes after i * 1200ms, next step starts immediately after
+    // Advance steps: step i completes after i * STEP_DURATION_MS, next step starts immediately after
     for (let i = 1; i <= EXECUTION_STEPS.length; i++) {
-      const completeAt = i * 1200
+      const completeAt = i * STEP_DURATION_MS
       timerRefs.current.push(
         setTimeout(() => {
           setCompletedSteps(prev => [...prev, i])
@@ -174,7 +176,7 @@ export default function HomePage() {
       setTimeout(() => {
         setCurrentStep(0)
         setDone(true)
-      }, EXECUTION_STEPS.length * 1200 + 200)
+      }, EXECUTION_STEPS.length * STEP_DURATION_MS + 200)
     )
 
     // Reset
@@ -185,7 +187,7 @@ export default function HomePage() {
         setCompletedSteps([])
         setDone(false)
         setQuery('')
-      }, EXECUTION_STEPS.length * 1200 + 4200)
+      }, EXECUTION_STEPS.length * STEP_DURATION_MS + 4200)
     )
   }
 
@@ -310,10 +312,11 @@ export default function HomePage() {
                     const isComplete = completedSteps.includes(stepNum)
                     const isActive = currentStep === stepNum && !isComplete
                     const isPending = !isComplete && !isActive
+                    const shouldShowStep = isActive || isComplete || (executing && stepNum <= currentStep)
 
                     return (
                       <AnimatePresence key={step}>
-                        {(isActive || isComplete || (executing && stepNum <= currentStep)) && (
+                        {shouldShowStep && (
                           <motion.div
                             initial={{ opacity: 0, x: -12 }}
                             animate={{ opacity: 1, x: 0 }}
