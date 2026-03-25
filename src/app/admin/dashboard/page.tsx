@@ -51,6 +51,15 @@ interface ProviderSummary {
   lastCheckedAt: string | null
 }
 
+// ── Memory status from /api/admin/memory ──────────────────────
+interface MemoryStatusData {
+  available: boolean
+  totalEntries: number
+  appSlugs: string[]
+  statusLabel: 'saving' | 'empty' | 'not_configured'
+  error: string | null
+}
+
 // ── Health config ──────────────────────────────────────────────
 const H = {
   healthy:      { label: 'Healthy',      color: 'text-emerald-400', dot: 'bg-emerald-400', icon: CheckCircle },
@@ -110,18 +119,21 @@ function StatTile({ label, value, sub, accent = false }: {
 export default function DashboardOverview() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [providers, setProviders] = useState<ProviderSummary[]>([])
+  const [memory, setMemory] = useState<MemoryStatusData | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
 
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true)
     try {
-      const [dashRes, provRes] = await Promise.all([
+      const [dashRes, provRes, memRes] = await Promise.all([
         fetch('/api/admin/dashboard'),
         fetch('/api/admin/providers'),
+        fetch('/api/admin/memory'),
       ])
       if (dashRes.ok) setData(await dashRes.json())
       if (provRes.ok) setProviders(await provRes.json())
+      if (memRes.ok) setMemory(await memRes.json())
     } catch {
       // silently fail — data stays as-is
     } finally {
@@ -138,12 +150,14 @@ export default function DashboardOverview() {
   const connectedApps     = data?.productStats.filter(a => a.integration !== null) ?? []
   const totalApps         = data?.productStats.length ?? 0
   const alertCount        = data?.recentEvents.filter(e => ['critical','error'].includes(e.severity)).length ?? 0
+  const memoryActive      = memory?.available === true && memory.totalEntries > 0
   // Setup score: 50 pts = healthy provider, 25 pts = enabled provider (not yet tested),
-  // 30 pts = app with integration, 20 pts = any brain requests made
+  // 30 pts = app with integration, 20 pts = any brain requests made, 10 pts = memory active
   const setupScore        = Math.round(
     ((healthyProviders.length > 0 ? 50 : enabledProviders.length > 0 ? 25 : 0) +
      (connectedApps.length > 0 ? 30 : 0) +
-     ((data?.brainStats?.totalRequests ?? 0) > 0 ? 20 : 0))
+     ((data?.brainStats?.totalRequests ?? 0) > 0 ? 20 : 0) +
+     (memoryActive ? 10 : 0))
   )
 
   if (loading) {
@@ -349,6 +363,7 @@ export default function DashboardOverview() {
               { label: 'App registered', ok: totalApps > 0 },
               { label: 'App integration active', ok: connectedApps.length > 0 },
               { label: 'Brain requests made', ok: (data?.brainStats?.totalRequests ?? 0) > 0 },
+              { label: 'Memory layer active', ok: memoryActive },
             ].map(item => (
               <div key={item.label} className="flex items-center justify-between">
                 <span className="text-sm text-slate-400">{item.label}</span>
@@ -357,6 +372,23 @@ export default function DashboardOverview() {
                   : <AlertCircle className="w-4 h-4 text-slate-600 flex-shrink-0" />}
               </div>
             ))}
+
+            {/* Memory status detail */}
+            <div className="pt-2 mt-1 border-t border-white/5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-500">Memory status</span>
+                {memory === null ? (
+                  <span className="text-slate-600">Loading…</span>
+                ) : memory.statusLabel === 'saving' ? (
+                  <span className="text-emerald-400">Saving · {memory.totalEntries} entr{memory.totalEntries === 1 ? 'y' : 'ies'}</span>
+                ) : memory.statusLabel === 'empty' ? (
+                  <span className="text-amber-400">Table ready · no entries yet</span>
+                ) : (
+                  <span className="text-slate-500" title={memory.error ?? ''}>Migration required</span>
+                )}
+              </div>
+            </div>
+
             <div className="pt-3 border-t border-white/5">
               <div className="flex items-center justify-between mb-1.5">
                 <span className="text-xs text-slate-500">Setup progress</span>

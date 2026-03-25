@@ -232,3 +232,20 @@ model BrainEvent {
   @@index([timestamp])
   @@map("brain_events")
 }
+
+/// Memory Layer — stores retrievable context, summaries, and learned patterns
+/// per connected app. Used by the Brain Gateway to provide context-aware execution.
+model MemoryEntry {
+  id          Int       @id @default(autoincrement())
+  appSlug     String    @map("app_slug")     // which app this memory belongs to
+  memoryType  String    @default("event") @map("memory_type") // event|summary|context|learned
+  key         String    @default("") // optional lookup key
+  content     String    // the stored memory content
+  importance  Float     @default(0.5) // 0.0–1.0 priority weight
+  expiresAt   DateTime? @map("expires_at")  // null = permanent
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@index([appSlug])
+  @@index([memoryType])
+  @@map("memory_entries")
+}

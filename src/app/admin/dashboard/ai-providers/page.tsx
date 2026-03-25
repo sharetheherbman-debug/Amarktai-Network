@@ -27,21 +27,101 @@ interface AiProvider {
 }
 
 // ── Static provider catalogue ────────────────────────────────────
-// Defines the canonical set of providers the system supports.
-// If the DB record exists it is used; otherwise a placeholder is shown.
+// Defines the canonical set of eligible execution layers.
+// All providers here are pay-as-you-go or have a real free/dev tier.
+// Qwen excluded: Alibaba DashScope requires account verification that is not universally accessible.
 const PROVIDER_CATALOGUE: {
   key: string
   name: string
   purpose: string
   defaultBaseUrl: string
   modelHint: string
+  tier: 'primary' | 'aggregator'
+  docsUrl: string
 }[] = [
-  { key: 'openai',      name: 'OpenAI',       purpose: 'Primary LLM execution — GPT-4o, o1, etc.',          defaultBaseUrl: 'https://api.openai.com',                   modelHint: 'gpt-4o' },
-  { key: 'grok',        name: 'xAI / Grok',   purpose: 'Real-time reasoning — Grok-2 and variants.',        defaultBaseUrl: 'https://api.x.ai',                         modelHint: 'grok-2-latest' },
-  { key: 'huggingface', name: 'Hugging Face', purpose: 'Open-source model inference — Llama, Mistral, etc.', defaultBaseUrl: 'https://api-inference.huggingface.co',     modelHint: 'meta-llama/Llama-3-8b-chat-hf' },
-  { key: 'gemini',      name: 'Gemini',       purpose: 'Google multimodal intelligence — Gemini 1.5 Pro.',  defaultBaseUrl: '',                                         modelHint: 'gemini-1.5-pro' },
-  { key: 'qwen',        name: 'Qwen',         purpose: 'Alibaba multilingual LLM — Qwen-Max and variants.', defaultBaseUrl: 'https://dashscope.aliyuncs.com/api',       modelHint: 'qwen-max' },
-  { key: 'nvidia',      name: 'NVIDIA',       purpose: 'NVIDIA NIM inference — Llama-3 Nemotron, etc.',     defaultBaseUrl: 'https://integrate.api.nvidia.com',         modelHint: 'nvidia/llama-3.1-nemotron-70b-instruct' },
+  // ── PRIMARY / DIRECT ────────────────────────────────────────────────────────
+  {
+    key: 'openai',
+    name: 'OpenAI',
+    purpose: 'Primary LLM layer — GPT-4o, o1, and GPT-4o-mini. Pay-as-you-go via platform.openai.com.',
+    defaultBaseUrl: 'https://api.openai.com',
+    modelHint: 'gpt-4o-mini',
+    tier: 'primary',
+    docsUrl: 'https://platform.openai.com/api-keys',
+  },
+  {
+    key: 'groq',
+    name: 'Groq',
+    purpose: 'Ultra-fast LLaMA 3 inference — free tier + PAYG. Best for low-latency tasks. api.groq.com.',
+    defaultBaseUrl: 'https://api.groq.com/openai',
+    modelHint: 'llama-3.3-70b-versatile',
+    tier: 'primary',
+    docsUrl: 'https://console.groq.com/keys',
+  },
+  {
+    key: 'deepseek',
+    name: 'DeepSeek',
+    purpose: 'DeepSeek V3 / R1 — very cheap PAYG. Strong at reasoning and coding. api.deepseek.com.',
+    defaultBaseUrl: 'https://api.deepseek.com',
+    modelHint: 'deepseek-chat',
+    tier: 'primary',
+    docsUrl: 'https://platform.deepseek.com/api_keys',
+  },
+  {
+    key: 'gemini',
+    name: 'Gemini',
+    purpose: 'Google Gemini 1.5 — free via AI Studio + PAYG. Multimodal-capable. aistudio.google.com.',
+    defaultBaseUrl: '',
+    modelHint: 'gemini-1.5-flash',
+    tier: 'primary',
+    docsUrl: 'https://aistudio.google.com/app/apikey',
+  },
+  {
+    key: 'grok',
+    name: 'xAI / Grok',
+    purpose: 'Grok-2 from xAI — PAYG via api.x.ai. Strong at real-time reasoning.',
+    defaultBaseUrl: 'https://api.x.ai',
+    modelHint: 'grok-2-latest',
+    tier: 'primary',
+    docsUrl: 'https://console.x.ai/',
+  },
+  {
+    key: 'huggingface',
+    name: 'Hugging Face',
+    purpose: 'Open-source model inference (LLaMA, Mistral, etc.) — free tier + PAYG. api-inference.huggingface.co.',
+    defaultBaseUrl: 'https://api-inference.huggingface.co',
+    modelHint: 'meta-llama/Llama-3-8b-chat-hf',
+    tier: 'primary',
+    docsUrl: 'https://huggingface.co/settings/tokens',
+  },
+  {
+    key: 'nvidia',
+    name: 'NVIDIA NIM',
+    purpose: 'NVIDIA-hosted LLaMA 3 Nemotron — free credits + PAYG via build.nvidia.com.',
+    defaultBaseUrl: 'https://integrate.api.nvidia.com',
+    modelHint: 'nvidia/llama-3.1-nemotron-70b-instruct',
+    tier: 'primary',
+    docsUrl: 'https://build.nvidia.com/nim',
+  },
+  // ── AGGREGATORS ─────────────────────────────────────────────────────────────
+  {
+    key: 'openrouter',
+    name: 'OpenRouter',
+    purpose: 'Multi-model aggregator — 100+ models via one key. Free tier models + PAYG. openrouter.ai.',
+    defaultBaseUrl: 'https://openrouter.ai/api',
+    modelHint: 'openai/gpt-4o-mini',
+    tier: 'aggregator',
+    docsUrl: 'https://openrouter.ai/keys',
+  },
+  {
+    key: 'together',
+    name: 'Together AI',
+    purpose: 'Open model inference aggregator — LLaMA, Mistral, Qwen, etc. Free trial + PAYG. api.together.xyz.',
+    defaultBaseUrl: 'https://api.together.xyz',
+    modelHint: 'meta-llama/Llama-3-70b-chat-hf',
+    tier: 'aggregator',
+    docsUrl: 'https://api.together.ai/settings/api-keys',
+  },
 ]
 
 // ── Health badge config ──────────────────────────────────────────
@@ -139,8 +219,15 @@ function ProviderCard({ catalogue, record, onSaved, onTested }: {
       {/* Header */}
       <div className="flex items-start justify-between px-5 py-4 border-b border-white/5">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <h3 className="text-base font-semibold text-white">{catalogue.name}</h3>
+            <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium uppercase tracking-wide ${
+              catalogue.tier === 'aggregator'
+                ? 'bg-violet-500/10 border border-violet-500/20 text-violet-400'
+                : 'bg-blue-500/10 border border-blue-500/20 text-blue-400'
+            }`}>
+              {catalogue.tier === 'aggregator' ? 'Aggregator' : 'Direct'}
+            </span>
             {record && (
               <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-medium ${health.bg} ${health.color}`}>
                 <HealthIcon className="w-3 h-3" />
@@ -155,6 +242,10 @@ function ProviderCard({ catalogue, record, onSaved, onTested }: {
             )}
           </div>
           <p className="text-xs text-slate-500 mt-1">{catalogue.purpose}</p>
+          <a href={catalogue.docsUrl} target="_blank" rel="noopener noreferrer"
+            className="text-[11px] text-blue-500 hover:text-blue-400 mt-1 inline-block">
+            Get API key →
+          </a>
         </div>
         {record && (
           <button
@@ -320,7 +411,7 @@ export default function AiProvidersPage() {
         </div>
       )}
 
-      {/* Provider cards */}
+      {/* Provider cards — grouped by tier */}
       {loading ? (
         <div className="space-y-4">
           {PROVIDER_CATALOGUE.map(c => (
@@ -328,27 +419,54 @@ export default function AiProvidersPage() {
           ))}
         </div>
       ) : (
-        <div className="space-y-4">
-          {PROVIDER_CATALOGUE.map((cat, i) => (
-            <motion.div
-              key={cat.key}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.05 }}
-            >
-              <ProviderCard
-                catalogue={cat}
-                record={byKey[cat.key] ?? null}
-                onSaved={handleSaved}
-                onTested={handleTested}
-              />
-            </motion.div>
-          ))}
+        <div className="space-y-8">
+          {/* Primary / Direct */}
+          <div>
+            <p className="text-xs text-slate-600 font-mono uppercase tracking-widest mb-3">Direct Providers</p>
+            <div className="space-y-4">
+              {PROVIDER_CATALOGUE.filter(c => c.tier === 'primary').map((cat, i) => (
+                <motion.div
+                  key={cat.key}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.05 }}
+                >
+                  <ProviderCard
+                    catalogue={cat}
+                    record={byKey[cat.key] ?? null}
+                    onSaved={handleSaved}
+                    onTested={handleTested}
+                  />
+                </motion.div>
+              ))}
+            </div>
+          </div>
+          {/* Aggregators */}
+          <div>
+            <p className="text-xs text-slate-600 font-mono uppercase tracking-widest mb-3">Aggregators (multi-model access via one key)</p>
+            <div className="space-y-4">
+              {PROVIDER_CATALOGUE.filter(c => c.tier === 'aggregator').map((cat, i) => (
+                <motion.div
+                  key={cat.key}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.05 }}
+                >
+                  <ProviderCard
+                    catalogue={cat}
+                    record={byKey[cat.key] ?? null}
+                    onSaved={handleSaved}
+                    onTested={handleTested}
+                  />
+                </motion.div>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
       <p className="text-xs text-slate-600">
-        API keys are stored encrypted. Only masked previews are shown. Test connections to verify keys are valid.
+        API keys are stored server-side only. Only masked previews are shown. Test connections to verify keys are valid before enabling.
       </p>
     </div>
   )

@@ -160,9 +160,12 @@ interface AvailableProvider {
 function defaultModelFor(providerKey: string): string {
   switch (providerKey) {
     case 'openai':      return 'gpt-4o-mini'
+    case 'groq':        return 'llama-3.3-70b-versatile'
+    case 'deepseek':    return 'deepseek-chat'
+    case 'openrouter':  return 'openai/gpt-4o-mini'
+    case 'together':    return 'meta-llama/Llama-3-70b-chat-hf'
     case 'gemini':      return 'gemini-1.5-flash'
     case 'grok':        return 'grok-2-latest'
-    case 'qwen':        return 'qwen-max'
     case 'huggingface': return 'meta-llama/Llama-3-8b-chat-hf'
     case 'nvidia':      return 'nvidia/llama-3.1-nemotron-70b-instruct'
     default:            return 'unknown'
@@ -188,16 +191,20 @@ async function loadAvailableProviders(): Promise<AvailableProvider[]> {
 
 function buildPreferenceOrder(appCategory: string): string[] {
   const cat = (appCategory ?? '').toLowerCase()
+  // Financial/trading: prefer low-latency and reasoning-strong providers
   if (cat.includes('crypto') || cat.includes('finance') || cat.includes('forex') || cat.includes('trading')) {
-    return ['openai', 'grok', 'gemini', 'qwen', 'huggingface', 'nvidia']
+    return ['openai', 'groq', 'deepseek', 'grok', 'gemini', 'openrouter', 'together', 'huggingface', 'nvidia']
   }
+  // Family/equine: prefer general-purpose + fast providers
   if (cat.includes('equine') || cat.includes('horse') || cat.includes('family')) {
-    return ['openai', 'gemini', 'grok', 'huggingface', 'qwen', 'nvidia']
+    return ['openai', 'groq', 'gemini', 'grok', 'together', 'huggingface', 'openrouter', 'nvidia', 'deepseek']
   }
+  // Marketing/content: prefer creative-strong providers
   if (cat.includes('marketing') || cat.includes('content')) {
-    return ['gemini', 'openai', 'grok', 'huggingface', 'qwen', 'nvidia']
+    return ['gemini', 'openai', 'groq', 'grok', 'openrouter', 'together', 'huggingface', 'nvidia', 'deepseek']
   }
-  return ['openai', 'gemini', 'grok', 'huggingface', 'qwen', 'nvidia']
+  // Default: OpenAI first, then fast/cheap alternatives
+  return ['openai', 'groq', 'deepseek', 'gemini', 'grok', 'openrouter', 'together', 'huggingface', 'nvidia']
 }
 
 // ── Decision Engine ───────────────────────────────────────────────────────────

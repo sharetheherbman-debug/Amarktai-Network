@@ -2,7 +2,6 @@ import type { Metadata } from 'next'
 import localFont from 'next/font/local'
 import './globals.css'
 import '@fontsource-variable/space-grotesk'
-import CommandBar from '@/components/CommandBar'
 
 const geistSans = localFont({
   src: './fonts/GeistVF.woff',
@@ -35,7 +34,6 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable}`}>
       <body suppressHydrationWarning>
         {children}
-        <CommandBar />
       </body>
     </html>
   )
