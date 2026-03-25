@@ -50,7 +50,7 @@ interface DashboardData {
   } | null
 }
 
-interface VpsSnapshot {
+interface _VpsSnapshot {
   cpuPercent: number
   ramPercent: number
   diskPercent: number
@@ -59,7 +59,7 @@ interface VpsSnapshot {
   timestamp: string
 }
 
-interface VpsProduct {
+interface _VpsProduct {
   id: number
   name: string
   slug: string
@@ -67,7 +67,7 @@ interface VpsProduct {
   hostingScope: string
   hostedHere: boolean
   integration: { healthStatus: string; lastHeartbeatAt: string | null; uptime: number | null } | null
-  vpsSnapshots: VpsSnapshot[]
+  vpsSnapshots: _VpsSnapshot[]
 }
 
 // ── Derived types ────────────────────────────────────────────────
@@ -93,6 +93,13 @@ function SeverityDot({ severity }: { severity: string }) {
     severity === 'error'    ? 'bg-red-400' :
     severity === 'warning'  ? 'bg-amber-400' : 'bg-blue-400'
   return <span className={`inline-flex h-1.5 w-1.5 rounded-full flex-shrink-0 ${cls}`} />
+}
+
+function getSeverityStyles(severity: string): { ring: string; text: string } {
+  if (severity === 'critical') return { ring: 'border-red-500/60 bg-red-500/10',    text: 'text-red-400'    }
+  if (severity === 'error')    return { ring: 'border-red-400/40 bg-red-400/5',     text: 'text-red-300'    }
+  if (severity === 'warning')  return { ring: 'border-amber-400/40 bg-amber-400/5', text: 'text-amber-300'  }
+  return                              { ring: 'border-blue-400/30 bg-blue-400/5',   text: 'text-blue-300'   }
 }
 
 function deriveSystemStatus(data: DashboardData | null): SystemStatus {
@@ -130,14 +137,13 @@ export default function DashboardPage() {
   const [now, setNow] = useState(new Date())
 
   useEffect(() => {
-    Promise.all([
-      fetch('/api/admin/dashboard').then((r) => r.json()),
-      // TODO: surface VPS snapshot data in a dedicated infrastructure page
-    fetch('/api/admin/vps').then((r) => r.json()),
-    ]).then(([dash]: [DashboardData, unknown]) => {
-      setData(dash)
-      setLoading(false)
-    }).catch(() => setLoading(false))
+    fetch('/api/admin/dashboard')
+      .then((r) => r.json())
+      .then((dash: DashboardData) => {
+        setData(dash)
+        setLoading(false)
+      })
+      .catch(() => setLoading(false))
   }, [])
 
   // Tick every minute for timestamp display
@@ -379,15 +385,7 @@ export default function DashboardPage() {
           {flowEvents.length > 0 ? (
             <div className="flex items-start gap-0 overflow-x-auto pb-2">
               {flowEvents.map((event, idx) => {
-                const severityRing =
-                  event.severity === 'critical' ? 'border-red-500/60 bg-red-500/10' :
-                  event.severity === 'error'    ? 'border-red-400/40 bg-red-400/5' :
-                  event.severity === 'warning'  ? 'border-amber-400/40 bg-amber-400/5' :
-                                                  'border-blue-400/30 bg-blue-400/5'
-                const severityText =
-                  event.severity === 'critical' ? 'text-red-400' :
-                  event.severity === 'error'    ? 'text-red-300' :
-                  event.severity === 'warning'  ? 'text-amber-300' : 'text-blue-300'
+                const { ring: severityRing, text: severityText } = getSeverityStyles(event.severity)
 
                 return (
                   <div key={event.id} className="flex items-center flex-shrink-0">
