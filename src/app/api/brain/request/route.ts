@@ -7,6 +7,7 @@ import {
   type BrainResponse,
 } from '@/lib/brain'
 import { orchestrate } from '@/lib/orchestrator'
+import { saveMemory, retrieveMemory } from '@/lib/memory'
 
 // ── Request schema ────────────────────────────────────────────────────────────
 
@@ -91,11 +92,20 @@ export async function POST(request: NextRequest) {
 
   const { app } = auth
 
+  // ── Retrieve relevant memory context ─────────────────────────────────
+  const memoryEntries = await retrieveMemory(app.slug, 5)
+  const memoryUsed = memoryEntries.length > 0
+
+  // Build context prefix if memories exist
+  const memoryContext = memoryEntries.length > 0
+    ? `[Context from previous interactions with ${app.name}]\n${memoryEntries.map(m => `- ${m.content}`).join('\n')}\n\n`
+    : ''
+
   // ── Orchestrate ───────────────────────────────────────────────────────
   const result = await orchestrate({
     appCategory: app.category,
     taskType: body.taskType,
-    message: body.message,
+    message: memoryContext + body.message,
   })
 
   const latencyMs = Date.now() - start
@@ -129,6 +139,18 @@ export async function POST(request: NextRequest) {
     )
   }
 
+  // ── Save memory on success ────────────────────────────────────────────
+  if (success && result.output) {
+    await saveMemory({
+      appSlug:    app.slug,
+      memoryType: 'event',
+      key:        body.taskType,
+      content:    `Task: ${body.taskType} | Input: ${body.message.slice(0, 200)} | Output: ${result.output.slice(0, 300)}`,
+      importance: result.confidenceScore ?? 0.5,
+      ttlDays:    90,
+    })
+  }
+
   const response: BrainResponse = {
     success,
     traceId,
@@ -144,7 +166,7 @@ export async function POST(request: NextRequest) {
     warnings: result.warnings,
     errors: result.errors,
     latencyMs,
-    memoryUsed: result.memoryUsed,
+    memoryUsed,
     fallbackUsed: result.fallbackUsed,
     timestamp: new Date().toISOString(),
   }
