@@ -15,11 +15,7 @@
 import {
   type ModelEntry,
   getEnabledModels,
-  getModelsByProvider,
-  getModelsByRole,
   getModelById,
-  getCheapestModelForCapability,
-  getPremiumModelForCapability,
 } from '@/lib/model-registry'
 
 import {

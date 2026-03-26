@@ -8,6 +8,7 @@ import {
 } from '@/lib/brain'
 import { orchestrate } from '@/lib/orchestrator'
 import { saveMemory, retrieveMemory } from '@/lib/memory'
+import { logRouteOutcome } from '@/lib/learning-engine'
 
 // ── Request schema ────────────────────────────────────────────────────────────
 
@@ -150,6 +151,20 @@ export async function POST(request: NextRequest) {
       ttlDays:    90,
     })
   }
+
+  // ── Log route outcome for learning engine ─────────────────────────────
+  await logRouteOutcome({
+    appSlug: app.slug,
+    taskType: body.taskType,
+    executionMode: result.executionMode,
+    providerKey: result.routedProvider ?? 'none',
+    model: result.routedModel ?? 'none',
+    success,
+    latencyMs,
+    confidenceScore: result.confidenceScore,
+    fallbackUsed: result.fallbackUsed,
+    validationPassed: result.validationUsed ? !result.warnings.some(w => w.includes('Validator flagged')) : null,
+  })
 
   const response: BrainResponse = {
     success,
