@@ -619,9 +619,9 @@ export function getModelsByCapability(capability: BooleanCapabilityKey): ModelEn
 /**
  * Returns models whose `primary_role` or `secondary_roles` include `role`.
  */
-export function getModelsByRole(role: string): ModelEntry[] {
+export function getModelsByRole(role: ModelRole): ModelEntry[] {
   return MODEL_REGISTRY.filter(
-    (m) => m.primary_role === role || m.secondary_roles.includes(role as ModelRole),
+    (m) => m.primary_role === role || m.secondary_roles.includes(role),
   );
 }
 
@@ -646,6 +646,8 @@ export function getValidatorEligibleModels(): ModelEntry[] {
 
 /**
  * Returns enabled models whose `specialist_domains` include `domain`.
+ *
+ * @param domain - Domain string to match (e.g. `'crypto'`, `'finance'`, `'math'`, `'coding'`).
  *
  * @example
  * ```ts
