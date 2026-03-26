@@ -23,8 +23,6 @@ export async function GET(request: NextRequest) {
   }
 
   // Return all profiles
-  const profiles = Object.fromEntries(
-    Object.entries(DEFAULT_APP_PROFILES).map(([key, profile]) => [key, profile])
-  )
-  return NextResponse.json({ profiles, total: Object.keys(profiles).length })
+  const profiles = Object.fromEntries(DEFAULT_APP_PROFILES)
+  return NextResponse.json({ profiles, total: DEFAULT_APP_PROFILES.size })
 }

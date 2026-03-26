@@ -98,8 +98,15 @@ const BACKBONE_PROVIDERS = [
   'nvidia', 'huggingface', 'deepseek', 'groq', 'openrouter', 'together',
 ];
 
-const BASIC_AGENT_PERMISSIONS = ['chat', 'summarise', 'translate'];
-const FULL_AGENT_PERMISSIONS = ['chat', 'summarise', 'translate', 'tool_use', 'agent_planning', 'code_generation'];
+const BASIC_AGENT_PERMISSIONS = [
+  'chat', 'summarise', 'translate',
+  'agent:planner', 'agent:router', 'agent:memory',
+];
+const FULL_AGENT_PERMISSIONS = [
+  'chat', 'summarise', 'translate', 'tool_use', 'agent_planning', 'code_generation',
+  'agent:planner', 'agent:router', 'agent:validator', 'agent:memory', 'agent:retrieval',
+  'agent:creative', 'agent:campaign', 'agent:trading_analyst', 'agent:app_ops', 'agent:learning',
+];
 
 const BASIC_PRIVACY_RULES = ['mask_pii', 'no_raw_credentials'];
 const STRICT_PRIVACY_RULES = ['mask_pii', 'no_raw_credentials', 'redact_financial_data', 'audit_log_required'];
