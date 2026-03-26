@@ -283,8 +283,16 @@ function resolveProviderAndModel(
 
   // Prefer the agent's configured default model; fall back to registry lookup.
   let model = definition.defaultModel ?? getDefaultModelForProvider(provider)
-  if (profile.preferred_models.length > 0) {
-    model = profile.preferred_models[0]
+
+  // Only override with an app-preferred model when it belongs to the resolved
+  // provider (avoids mismatched provider/model combos like cohere + gpt-4o).
+  if (profile.preferred_models.length > 0 && profile.allowed_models.length > 0) {
+    const compatiblePreferred = profile.preferred_models.find((m) =>
+      profile.allowed_models.includes(m),
+    )
+    if (compatiblePreferred) {
+      model = compatiblePreferred
+    }
   }
 
   return { provider, model }
