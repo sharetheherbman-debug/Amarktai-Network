@@ -132,9 +132,7 @@ export default function DashboardOverview() {
   // ── Derived ────────────────────────────────────────────────
   const healthyProviders  = providers.filter(p => p.healthStatus === 'healthy')
   const enabledProviders  = providers.filter(p => p.enabled)
-  const _connectedApps    = data?.productStats.filter(a => a.integration !== null) ?? []
   const totalApps         = data?.productStats.length ?? 0
-  const _memoryActive     = memory?.available === true && memory.totalEntries > 0
 
   const totalReqs   = data?.brainStats?.totalRequests ?? 0
   const successReqs = data?.brainStats?.successCount ?? 0
