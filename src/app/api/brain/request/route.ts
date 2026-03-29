@@ -11,6 +11,7 @@ import { saveMemory } from '@/lib/memory'
 import { retrieve } from '@/lib/retrieval-engine'
 import { logRouteOutcome } from '@/lib/learning-engine'
 import { scanContent, blockedExplanation } from '@/lib/content-filter'
+import { getBudgetSummary } from '@/lib/budget-tracker'
 
 // ── Request schema ────────────────────────────────────────────────────────────
 
@@ -67,6 +68,35 @@ export async function POST(request: NextRequest) {
 
   const traceId = body.traceId || randomUUID()
 
+  // ── Content filter — scan input for policy violations ───────────────
+  const inputFilter = scanContent(body.message)
+  if (inputFilter.flagged) {
+    return NextResponse.json(
+      {
+        success: false,
+        traceId,
+        app: null,
+        routedProvider: null,
+        routedModel: null,
+        taskType: body.taskType,
+        executionMode: 'direct',
+        confidenceScore: null,
+        validationUsed: false,
+        consensusUsed: false,
+        output: null,
+        warnings: [],
+        errors: ['Input blocked by safety filter'],
+        categories: inputFilter.categories,
+        message: blockedExplanation(inputFilter.categories),
+        latencyMs: Date.now() - start,
+        memoryUsed: false,
+        fallbackUsed: false,
+        timestamp: new Date().toISOString(),
+      },
+      { status: 403 },
+    )
+  }
+
   // ── Authenticate the calling app ──────────────────────────────────────
   const auth = await authenticateApp(body.appId, body.appSecret)
   if (!auth.ok || !auth.app) {
@@ -111,6 +141,25 @@ export async function POST(request: NextRequest) {
     }
   } catch {
     // Retrieval engine unavailable — proceed without context
+  }
+
+  // ── Budget enforcement — block if all providers are over critical ────
+  try {
+    const budgetSummary = await getBudgetSummary()
+    const allCritical = budgetSummary.entries.length > 0 &&
+      budgetSummary.entries.every(e => e.status === 'critical')
+    if (allCritical) {
+      return NextResponse.json(
+        errorResponse({
+          traceId, taskType: body.taskType, app,
+          error: 'All providers have exceeded their budget critical thresholds. Please contact your administrator.',
+          statusCode: 429, latencyMs: Date.now() - start,
+        }),
+        { status: 429 },
+      )
+    }
+  } catch {
+    // Budget check failed — proceed without enforcement
   }
 
   // ── Orchestrate ───────────────────────────────────────────────────────

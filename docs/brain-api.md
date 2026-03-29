@@ -122,18 +122,51 @@ Response:
 
 ### Video Generation
 
-Video generation is handled through the multimodal pipeline:
+Dedicated video generation endpoint:
 
 ```bash
-curl -X POST http://localhost:3000/api/brain/request \
+curl -X POST http://localhost:3000/api/brain/video \
   -H 'Content-Type: application/json' \
   -d '{
-    "appId": "my-app",
-    "appSecret": "secret123",
-    "prompt": "Create a 30-second explainer video script about AI",
-    "taskType": "video",
-    "context": { "format": "reel", "duration": 30 }
+    "script": "A 15-second product showcase for a new smartphone",
+    "style": "cinematic",
+    "duration": 15,
+    "aspectRatio": "16:9"
   }'
+```
+
+Parameters:
+- `script` (string, required) — video description or script
+- `style` (string) — `cinematic` | `animated` | `realistic` (default: `cinematic`)
+- `duration` (number) — 1–120 seconds (default: 15)
+- `aspectRatio` (string) — `16:9` | `9:16` | `1:1` (default: `16:9`)
+
+Response:
+```json
+{
+  "status": "submitted",
+  "jobId": "vid_1234_abc",
+  "estimatedCompletionSeconds": 60,
+  "params": { "script": "...", "style": "cinematic", "duration": 15, "aspectRatio": "16:9" }
+}
+```
+
+---
+
+## Memory Management
+
+### Export Memories
+
+```bash
+curl -X POST 'http://localhost:3000/api/admin/memory/manage?appSlug=my-app' \
+  -H 'Cookie: session=...'
+```
+
+### Clear Memories
+
+```bash
+curl -X DELETE 'http://localhost:3000/api/admin/memory/manage?appSlug=my-app' \
+  -H 'Cookie: session=...'
 ```
 
 ---

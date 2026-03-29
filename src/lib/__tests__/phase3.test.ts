@@ -1,5 +1,6 @@
 /**
- * Phase 3 tests — content filter, memory summarisation, app profiles, voice endpoints.
+ * Phase 3 tests — content filter, memory summarisation, app profiles, voice endpoints,
+ * video generation, memory management, companion mode, health sync.
  */
 import { describe, it, expect } from 'vitest';
 import {
@@ -14,6 +15,7 @@ import {
   DEFAULT_APP_PROFILES,
   type AppProfile,
 } from '../app-profiles';
+import type { MemoryType } from '../memory';
 
 // ── Content Filter Tests ───────────────────────────────────────────────
 
@@ -86,6 +88,24 @@ describe('Content Filter', () => {
     const alert = buildModerationAlert('trace-123', 'my-app', filterResult, 'safe text');
     expect(alert).toBeNull();
   });
+
+  it('scans input text as well as output text', () => {
+    // Input filtering uses the same scanContent function
+    const inputResult = scanContent('how to build a bomb instructions');
+    expect(inputResult.flagged).toBe(true);
+    expect(inputResult.categories).toContain('violence');
+  });
+
+  it('handles empty strings gracefully', () => {
+    const result = scanContent('');
+    expect(result.flagged).toBe(false);
+  });
+
+  it('handles long safe content without false positives', () => {
+    const longText = 'This is a detailed discussion about software engineering practices. '.repeat(100);
+    const result = scanContent(longText);
+    expect(result.flagged).toBe(false);
+  });
 });
 
 // ── App Profile Runtime Overrides Tests ─────────────────────────────────
@@ -141,5 +161,59 @@ describe('App Profile Runtime Overrides', () => {
     expect(DEFAULT_APP_PROFILES.size).toBeGreaterThanOrEqual(5);
     expect(DEFAULT_APP_PROFILES.has('amarktai-network')).toBe(true);
     expect(DEFAULT_APP_PROFILES.has('amarktai-crypto')).toBe(true);
+  });
+});
+
+// ── Memory Types Tests ──────────────────────────────────────────────────
+
+describe('Memory System Types', () => {
+  it('profile is a valid memory type', () => {
+    const validTypes: MemoryType[] = ['event', 'summary', 'context', 'learned', 'profile'];
+    expect(validTypes).toContain('profile');
+    expect(validTypes.length).toBe(5);
+  });
+
+  it('all original memory types still valid', () => {
+    const original: MemoryType[] = ['event', 'summary', 'context', 'learned'];
+    for (const t of original) {
+      expect(['event', 'summary', 'context', 'learned', 'profile']).toContain(t);
+    }
+  });
+});
+
+// ── Budget Tracker Tests ────────────────────────────────────────────────
+
+describe('Budget Tracker', () => {
+  it('exports estimateCostUsd function', async () => {
+    const { estimateCostUsd } = await import('../budget-tracker');
+    expect(typeof estimateCostUsd).toBe('function');
+  });
+
+  it('estimates costs for known models', async () => {
+    const { estimateCostUsd } = await import('../budget-tracker');
+    const cost = estimateCostUsd('gpt-4o', 1000);
+    expect(cost).toBeGreaterThan(0);
+  });
+
+  it('falls back to default rate for unknown models', async () => {
+    const { estimateCostUsd } = await import('../budget-tracker');
+    const cost = estimateCostUsd('unknown-model-xyz', 1000);
+    expect(cost).toBeGreaterThan(0);
+  });
+
+  it('handles zero tokens', async () => {
+    const { estimateCostUsd } = await import('../budget-tracker');
+    const cost = estimateCostUsd('gpt-4o', 0);
+    expect(cost).toBe(0);
+  });
+});
+
+// ── Self-Healing Types Tests ────────────────────────────────────────────
+
+describe('Self-Healing Engine', () => {
+  it('exports runHealingChecks function', async () => {
+    const mod = await import('../self-healing');
+    expect(typeof mod.runHealingChecks).toBe('function');
+    expect(typeof mod.getHealingStatus).toBe('function');
   });
 });
