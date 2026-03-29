@@ -6,7 +6,7 @@ import {
   Zap, RefreshCw, AlertCircle, CheckCircle, Brain, Shield,
   Cpu, Activity, Sparkles, Megaphone, TrendingUp, Settings,
   BookOpen, Search, Mic, Plane, Code, HeartHandshake, Wrench,
-  ChevronDown, X, Clock, Hash, Lock, ArrowRightLeft, Server,
+  X, Clock, Hash, Lock, ArrowRightLeft, Server,
   Database, CircleDot, Layers, Filter, Radio, BarChart3,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
