@@ -93,10 +93,11 @@ async function run() {
 
     // Lower importance of the original entries by 50 %
     const ids = items.map((e) => e.id);
+    const avgImportance = items.reduce((sum, e) => sum + (e.importance ?? 5), 0) / items.length;
     await prisma.memoryEntry.updateMany({
       where: { id: { in: ids } },
       data: {
-        importance: Math.max(1, Math.floor((items[0].importance ?? 5) * 0.5)),
+        importance: Math.max(1, Math.floor(avgImportance * 0.5)),
       },
     });
 

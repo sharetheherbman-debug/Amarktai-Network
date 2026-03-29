@@ -220,16 +220,24 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [theme, setTheme] = useState<'dark' | 'light'>('dark')
 
   useEffect(() => {
-    const saved = localStorage.getItem('amarktai-theme') as 'dark' | 'light' | null
-    if (saved === 'light' || saved === 'dark') {
-      setTheme(saved)
+    try {
+      const saved = localStorage.getItem('amarktai-theme') as 'dark' | 'light' | null
+      if (saved === 'light' || saved === 'dark') {
+        setTheme(saved)
+      }
+    } catch {
+      // localStorage unavailable (SSR or restricted context)
     }
   }, [])
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark')
     document.documentElement.classList.toggle('light', theme === 'light')
-    localStorage.setItem('amarktai-theme', theme)
+    try {
+      localStorage.setItem('amarktai-theme', theme)
+    } catch {
+      // localStorage unavailable
+    }
   }, [theme])
 
   const toggleTheme = useCallback(() => {

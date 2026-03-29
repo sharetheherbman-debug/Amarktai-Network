@@ -26,7 +26,7 @@ export interface ContentFilterResult {
   flagged: boolean;
   categories: FlagCategory[];
   message: string;
-  /** Confidence 0‑1 (keyword match always returns 1.0) */
+  /** Confidence 0-1 (keyword match always returns 1.0) */
   confidence: number;
 }
 
