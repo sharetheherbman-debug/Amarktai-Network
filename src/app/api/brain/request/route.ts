@@ -10,6 +10,7 @@ import { orchestrate } from '@/lib/orchestrator'
 import { saveMemory } from '@/lib/memory'
 import { retrieve } from '@/lib/retrieval-engine'
 import { logRouteOutcome } from '@/lib/learning-engine'
+import { scanContent, blockedExplanation } from '@/lib/content-filter'
 
 // ── Request schema ────────────────────────────────────────────────────────────
 
@@ -149,6 +150,37 @@ export async function POST(request: NextRequest) {
       errorResponse({ traceId, taskType: body.taskType, app, error: result.errors[0], statusCode: 503, latencyMs }),
       { status: 503 },
     )
+  }
+
+  // ── Content filter — scan output for policy violations ──────────────
+  if (success && result.output) {
+    const filterResult = scanContent(result.output)
+    if (filterResult.flagged) {
+      return NextResponse.json(
+        {
+          success: false,
+          traceId,
+          app: { id: app.id, name: app.name, slug: app.slug },
+          routedProvider: result.routedProvider,
+          routedModel: result.routedModel,
+          taskType: body.taskType,
+          executionMode: result.executionMode,
+          confidenceScore: result.confidenceScore,
+          validationUsed: result.validationUsed,
+          consensusUsed: result.consensusUsed,
+          output: null,
+          warnings: [],
+          errors: ['Content blocked by safety filter'],
+          categories: filterResult.categories,
+          message: blockedExplanation(filterResult.categories),
+          latencyMs,
+          memoryUsed,
+          fallbackUsed: result.fallbackUsed,
+          timestamp: new Date().toISOString(),
+        },
+        { status: 403 },
+      )
+    }
   }
 
   // ── Save memory on success ────────────────────────────────────────────
