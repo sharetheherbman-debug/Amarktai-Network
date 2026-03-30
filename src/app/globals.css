@@ -118,6 +118,16 @@ input:focus, textarea:focus, select:focus { outline: none; }
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
 }
 
+.glass-card {
+  background: rgba(15, 22, 40, 0.6);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+.glass-card:hover {
+  background: rgba(15, 22, 40, 0.8);
+}
+
 /* ─── Glow Effect ────────────────────────────────── */
 .glow-blue {
   box-shadow:

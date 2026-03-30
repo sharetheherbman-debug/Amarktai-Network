@@ -16,7 +16,7 @@ export default function MetricCard({ label, value, change, icon, className, suff
   const isNegative = change !== undefined && change < 0
 
   return (
-    <div className={cn('glass rounded-xl p-4 space-y-2 relative overflow-hidden group border border-white/5 hover:border-blue-500/20 transition-all duration-300', className)}>
+    <div className={cn('bg-white/[0.03] backdrop-blur-xl rounded-xl p-4 space-y-2 relative overflow-hidden group border border-white/[0.06] hover:border-blue-500/20 transition-all duration-300', className)}>
       {/* Gradient top accent */}
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-blue-500/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
       {/* Corner glow */}

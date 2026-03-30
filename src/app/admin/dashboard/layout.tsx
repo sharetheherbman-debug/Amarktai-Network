@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   LayoutDashboard, AppWindow, Plug, Brain, Layers, Route, BookOpen,
   DollarSign, Bot, Database, Palette, FlaskConical, ShieldAlert, Bell,
-  FileText, Server, ImageIcon, Video, Mic,
+  FileText, Server,
   LogOut, Menu, X, ChevronRight, User, PanelLeftClose, PanelLeft, Settings,
 } from 'lucide-react'
 

@@ -4,15 +4,15 @@ import { useEffect, useState, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import {
   CheckCircle, AlertCircle, AlertTriangle, WifiOff, Clock,
-  RefreshCw, Zap, Activity, Shield, Brain, Database, Server,
-  ArrowRight, CircleDot, Cpu, Gauge, Bot, FlaskConical,
-  MessageSquare, Layers,
+  RefreshCw, Zap, Activity, Brain, Database, Server,
+  ArrowRight, Cpu, Gauge, Bot, FlaskConical,
+  Layers,
 } from 'lucide-react'
 import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
 import MetricCard from '@/components/ui/MetricCard'
 
-// ── Types ─────────────────────────────────────────────────────────
+/* ── Types ─────────────────────────────────────────────────────── */
 interface DashboardData {
   metrics: {
     totalProducts: number
@@ -61,14 +61,14 @@ interface MemoryStatusData {
   error: string | null
 }
 
-// ── Health config ──────────────────────────────────────────────
+/* ── Health config ─────────────────────────────────────────────── */
 const H = {
-  healthy:      { label: 'Healthy',      color: 'text-emerald-400', dot: 'bg-emerald-400', icon: CheckCircle },
-  configured:   { label: 'Key Set',      color: 'text-amber-400',   dot: 'bg-amber-400',   icon: Clock },
-  degraded:     { label: 'Degraded',     color: 'text-amber-400',   dot: 'bg-amber-400',   icon: AlertTriangle },
-  error:        { label: 'Error',        color: 'text-red-400',     dot: 'bg-red-400',     icon: AlertCircle },
-  unconfigured: { label: 'Not Set',      color: 'text-slate-500',   dot: 'bg-slate-600',   icon: WifiOff },
-  disabled:     { label: 'Disabled',     color: 'text-slate-500',   dot: 'bg-slate-600',   icon: WifiOff },
+  healthy:      { label: 'Healthy',  color: 'text-emerald-400', dot: 'bg-emerald-400', icon: CheckCircle },
+  configured:   { label: 'Key Set',  color: 'text-amber-400',   dot: 'bg-amber-400',   icon: Clock },
+  degraded:     { label: 'Degraded', color: 'text-amber-400',   dot: 'bg-amber-400',   icon: AlertTriangle },
+  error:        { label: 'Error',    color: 'text-red-400',     dot: 'bg-red-400',     icon: AlertCircle },
+  unconfigured: { label: 'Not Set',  color: 'text-slate-500',   dot: 'bg-slate-600',   icon: WifiOff },
+  disabled:     { label: 'Disabled', color: 'text-slate-500',   dot: 'bg-slate-600',   icon: WifiOff },
 } as const
 
 const SEV = {
@@ -78,17 +78,16 @@ const SEV = {
   info:     { color: 'text-blue-400',  bg: 'bg-blue-400/10',  dot: 'bg-blue-400' },
 } as const
 
-// ── Staggered entrance animation ──────────────────────────────
-const stagger = {
-  hidden: {},
-  show: { transition: { staggerChildren: 0.07 } },
-}
+/* ── Animation ─────────────────────────────────────────────────── */
+const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.06 } } }
 const fadeUp = {
-  hidden: { opacity: 0, y: 14 },
-  show:   { opacity: 1, y: 0, transition: { duration: 0.45, ease: 'easeOut' as const } },
+  hidden: { opacity: 0, y: 12 },
+  show:   { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' as const } },
 }
 
-// ── Main ──────────────────────────────────────────────────────
+const CARD = 'bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] rounded-2xl'
+
+/* ── Main ──────────────────────────────────────────────────────── */
 export default function DashboardOverview() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [providers, setProviders] = useState<ProviderSummary[]>([])
@@ -131,7 +130,7 @@ export default function DashboardOverview() {
 
   useEffect(() => { load() }, [load])
 
-  // ── Derived ────────────────────────────────────────────────
+  /* ── Derived ─────────────────────────────────────────────────── */
   const healthyProviders = providers.filter(p => p.healthStatus === 'healthy')
   const enabledProviders = providers.filter(p => p.enabled)
   const totalApps        = data?.productStats.length ?? 0
@@ -146,79 +145,55 @@ export default function DashboardOverview() {
 
   const systemOnline = enabledProviders.length > 0 || totalApps > 0
 
-  // ── Loading skeleton ───────────────────────────────────────
+  /* ── Loading skeleton ────────────────────────────────────────── */
   if (loading) {
     return (
-      <div className="space-y-6 animate-pulse max-w-7xl">
-        <div className="h-20 glass rounded-2xl" />
+      <div className="space-y-6 animate-pulse">
+        <div className="h-16 bg-white/[0.03] rounded-2xl border border-white/[0.04]" />
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[...Array(4)].map((_, i) => (
             <div key={i} className="h-28 bg-white/[0.03] rounded-2xl border border-white/[0.04]" />
           ))}
         </div>
-        <div className="h-40 bg-white/[0.03] rounded-2xl border border-white/[0.04]" />
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {[...Array(2)].map((_, i) => (
             <div key={i} className="h-56 bg-white/[0.03] rounded-2xl border border-white/[0.04]" />
           ))}
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {[...Array(2)].map((_, i) => (
-            <div key={i} className="h-48 bg-white/[0.03] rounded-2xl border border-white/[0.04]" />
-          ))}
-        </div>
-        <div className="h-48 bg-white/[0.03] rounded-2xl border border-white/[0.04]" />
       </div>
     )
   }
 
   return (
-    <motion.div
-      variants={stagger}
-      initial="hidden"
-      animate="show"
-      className="space-y-6 max-w-7xl"
-    >
-      {/* ─── Header ──────────────────────────────────────────── */}
-      <motion.div
-        variants={fadeUp}
-        className="glass rounded-2xl px-6 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border border-white/[0.06] relative overflow-hidden"
-      >
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-500/[0.04] via-transparent to-cyan-500/[0.04] pointer-events-none" />
-        <div className="relative">
-          <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-blue-400 via-cyan-300 to-blue-400 text-transparent bg-clip-text tracking-tight">
-            Command Center
-          </h1>
-          <p className="text-xs text-slate-500 mt-1 font-mono tracking-wide">AmarktAI Neural Network Overview</p>
+    <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6">
+
+      {/* ─── Header ─────────────────────────────────────────────── */}
+      <motion.div variants={fadeUp} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold text-white tracking-tight">Overview</h1>
+          <p className="text-xs text-slate-500 mt-0.5">System status and key metrics</p>
         </div>
-        <div className="flex items-center gap-4 relative">
-          {/* System Online badge */}
-          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border ${
+        <div className="flex items-center gap-3">
+          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-mono font-medium ${
             systemOnline
-              ? 'bg-emerald-400/[0.08] border-emerald-400/20'
-              : 'bg-red-400/[0.08] border-red-400/20'
+              ? 'bg-emerald-400/[0.08] border-emerald-400/20 text-emerald-400'
+              : 'bg-red-400/[0.08] border-red-400/20 text-red-400'
           }`}>
-            <span className="relative flex h-2 w-2">
-              {systemOnline && (
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-              )}
-              <span className={`relative inline-flex rounded-full h-2 w-2 ${systemOnline ? 'bg-emerald-400' : 'bg-red-400'}`} />
+            <span className="relative flex h-1.5 w-1.5">
+              {systemOnline && <span className="animate-ping absolute inset-0 rounded-full bg-emerald-400 opacity-75" />}
+              <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${systemOnline ? 'bg-emerald-400' : 'bg-red-400'}`} />
             </span>
-            <span className={`text-xs font-mono font-semibold ${systemOnline ? 'text-emerald-400' : 'text-red-400'}`}>
-              {systemOnline ? 'System Online' : 'System Offline'}
-            </span>
+            {systemOnline ? 'Online' : 'Offline'}
           </div>
-          {/* Last refreshed */}
           {lastRefreshed && (
             <span className="text-[11px] text-slate-600 font-mono hidden sm:inline">
               {formatDistanceToNow(lastRefreshed, { addSuffix: true })}
             </span>
           )}
-          {/* Refresh */}
           <button
             onClick={() => load(true)}
             disabled={refreshing}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-xs text-slate-400 hover:text-white hover:bg-white/[0.07] hover:border-blue-500/20 transition-all disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.06] text-xs text-slate-400 hover:text-white hover:bg-white/[0.06] transition-all disabled:opacity-50"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
             Refresh
@@ -226,74 +201,45 @@ export default function DashboardOverview() {
         </div>
       </motion.div>
 
-      {/* ─── DB Error Banner ─────────────────────────────────── */}
+      {/* ─── DB Error ───────────────────────────────────────────── */}
       {dbError && (
-        <motion.div
-          variants={fadeUp}
-          className="bg-red-500/[0.06] border border-red-500/20 rounded-2xl px-5 py-4 flex items-start gap-3"
-        >
+        <motion.div variants={fadeUp} className="bg-red-500/[0.06] border border-red-500/20 rounded-xl px-5 py-4 flex items-start gap-3">
           <AlertCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
           <div>
             <p className="text-sm font-semibold text-red-400">Database Connection Error</p>
             <p className="text-xs text-red-400/70 mt-0.5">{dbError}</p>
             <p className="text-xs text-slate-500 mt-1.5">
               Set a valid <code className="text-slate-400 font-mono text-[11px]">DATABASE_URL</code> and check the{' '}
-              <Link href="/admin/dashboard/readiness" className="text-blue-400 hover:text-blue-300 underline transition-colors">
-                Readiness
-              </Link>{' '}page.
+              <Link href="/admin/dashboard/readiness" className="text-blue-400 hover:text-blue-300 underline transition-colors">Readiness</Link> page.
             </p>
           </div>
         </motion.div>
       )}
 
-      {/* ─── Key Metrics Row ─────────────────────────────────── */}
+      {/* ─── Key Metrics ────────────────────────────────────────── */}
       <motion.div variants={fadeUp} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <MetricCard
-          label="Total Apps"
-          value={data?.metrics.totalProducts ?? 0}
-          icon={<Server className="w-4 h-4" />}
-        />
-        <MetricCard
-          label="Active Providers"
-          value={enabledProviders.length}
-          icon={<Cpu className="w-4 h-4" />}
-          suffix={`/ ${providers.length}`}
-        />
-        <MetricCard
-          label="Brain Requests"
-          value={totalReqs.toLocaleString()}
-          icon={<Brain className="w-4 h-4" />}
-          suffix="total"
-        />
-        <MetricCard
-          label="System Health"
-          value={`${systemHealth}%`}
-          icon={<Gauge className="w-4 h-4" />}
-        />
+        <MetricCard label="Total Apps"       value={data?.metrics.totalProducts ?? 0} icon={<Server className="w-4 h-4" />} />
+        <MetricCard label="Active Providers" value={enabledProviders.length}          icon={<Cpu className="w-4 h-4" />} suffix={`/ ${providers.length}`} />
+        <MetricCard label="Requests"         value={totalReqs.toLocaleString()}       icon={<Brain className="w-4 h-4" />} suffix="total" />
+        <MetricCard label="System Health"    value={`${systemHealth}%`}               icon={<Gauge className="w-4 h-4" />} />
       </motion.div>
 
-      {/* ─── Provider Health Grid ────────────────────────────── */}
+      {/* ─── Provider Health ─────────────────────────────────────── */}
       <motion.div variants={fadeUp}>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-white tracking-wide uppercase flex items-center gap-2">
+          <h2 className="text-sm font-semibold text-white flex items-center gap-2">
             <Zap className="w-4 h-4 text-blue-400" />
             Provider Health
           </h2>
-          <Link
-            href="/admin/dashboard/ai-providers"
-            className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors"
-          >
+          <Link href="/admin/dashboard/ai-providers" className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors">
             Manage <ArrowRight className="w-3 h-3" />
           </Link>
         </div>
         {providers.length === 0 ? (
-          <div className="glass rounded-2xl p-8 text-center border border-white/[0.06]">
-            <WifiOff className="w-8 h-8 text-slate-600 mx-auto mb-3" />
+          <div className={`${CARD} p-8 text-center`}>
+            <WifiOff className="w-7 h-7 text-slate-600 mx-auto mb-2" />
             <p className="text-sm text-slate-500">No providers configured</p>
-            <Link
-              href="/admin/dashboard/ai-providers"
-              className="mt-2 inline-block text-xs text-blue-400 hover:text-blue-300 transition-colors"
-            >
+            <Link href="/admin/dashboard/ai-providers" className="mt-2 inline-block text-xs text-blue-400 hover:text-blue-300 transition-colors">
               Set up AI providers →
             </Link>
           </div>
@@ -303,10 +249,7 @@ export default function DashboardOverview() {
               const cfg = H[p.healthStatus as keyof typeof H] ?? H.unconfigured
               const Icon = cfg.icon
               return (
-                <div
-                  key={p.id}
-                  className="glass-card rounded-2xl p-4 flex items-center gap-3 border border-white/[0.06] hover:border-white/[0.12] transition-all group"
-                >
+                <div key={p.id} className={`${CARD} p-4 flex items-center gap-3 hover:border-white/[0.12] transition-all group`}>
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
                     p.healthStatus === 'healthy' ? 'bg-emerald-400/10' :
                     p.healthStatus === 'error' ? 'bg-red-400/10' :
@@ -316,17 +259,11 @@ export default function DashboardOverview() {
                     <Icon className={`w-5 h-5 ${cfg.color}`} />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-white truncate group-hover:text-blue-300 transition-colors">
-                      {p.displayName}
-                    </p>
+                    <p className="text-sm font-medium text-white truncate">{p.displayName}</p>
                     <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot} ${
-                        p.healthStatus === 'healthy' ? 'animate-pulse' : ''
-                      }`} />
+                      <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
                       <span className={`text-xs font-mono ${cfg.color}`}>{cfg.label}</span>
-                      {!p.enabled && (
-                        <span className="text-[10px] text-slate-600 font-mono ml-1">(disabled)</span>
-                      )}
+                      {!p.enabled && <span className="text-[10px] text-slate-600 font-mono ml-1">(disabled)</span>}
                     </div>
                   </div>
                 </div>
@@ -336,72 +273,54 @@ export default function DashboardOverview() {
         )}
       </motion.div>
 
-      {/* ─── Two-Column: Brain Performance & Memory Status ──── */}
+      {/* ─── Brain Performance & Memory ──────────────────────────── */}
       <motion.div variants={fadeUp} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
         {/* Brain Performance */}
-        <div className="glass rounded-2xl overflow-hidden border border-white/[0.06]">
+        <div className={CARD}>
           <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/[0.06]">
             <h2 className="text-sm font-semibold text-white flex items-center gap-2">
               <Brain className="w-4 h-4 text-violet-400" />
               Brain Performance
             </h2>
-            <Link
-              href="/admin/dashboard/brain-chat"
-              className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors"
-            >
-              Open Chat <ArrowRight className="w-3 h-3" />
-            </Link>
           </div>
-          <div className="p-5">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-white/[0.03] rounded-xl p-4 border border-white/[0.04]">
-                <p className="text-xs text-slate-500 uppercase tracking-wider">Success Rate</p>
-                <p className={`text-2xl font-bold font-mono mt-1.5 ${
-                  successRate >= 90 ? 'text-emerald-400' : successRate >= 70 ? 'text-amber-400' : 'text-red-400'
-                }`}>
-                  {totalReqs > 0 ? `${successRate}%` : '—'}
-                </p>
-                {totalReqs > 0 && (
-                  <div className="mt-2 h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all duration-700 ${
-                        successRate >= 90 ? 'bg-emerald-400' : successRate >= 70 ? 'bg-amber-400' : 'bg-red-400'
-                      }`}
-                      style={{ width: `${successRate}%` }}
-                    />
-                  </div>
-                )}
-              </div>
-              <div className="bg-white/[0.03] rounded-xl p-4 border border-white/[0.04]">
-                <p className="text-xs text-slate-500 uppercase tracking-wider">Avg Latency</p>
-                <p className="text-2xl font-bold font-mono mt-1.5 text-white">
-                  {data?.brainStats?.avgLatencyMs ? `${data.brainStats.avgLatencyMs}` : '—'}
-                </p>
-                {data?.brainStats?.avgLatencyMs && (
-                  <span className="text-xs text-slate-500 font-mono">ms</span>
-                )}
-              </div>
-              <div className="bg-white/[0.03] rounded-xl p-4 border border-white/[0.04]">
-                <p className="text-xs text-slate-500 uppercase tracking-wider">Total Success</p>
-                <p className="text-2xl font-bold font-mono mt-1.5 text-emerald-400">
-                  {successReqs.toLocaleString()}
-                </p>
-              </div>
-              <div className="bg-white/[0.03] rounded-xl p-4 border border-white/[0.04]">
-                <p className="text-xs text-slate-500 uppercase tracking-wider">Total Errors</p>
-                <p className={`text-2xl font-bold font-mono mt-1.5 ${
-                  errorReqs > 0 ? 'text-red-400' : 'text-slate-400'
-                }`}>
-                  {errorReqs.toLocaleString()}
-                </p>
-              </div>
+          <div className="p-5 grid grid-cols-2 gap-4">
+            <div className="bg-white/[0.03] rounded-xl p-4 border border-white/[0.04]">
+              <p className="text-xs text-slate-500 uppercase tracking-wider">Success Rate</p>
+              <p className={`text-2xl font-bold font-mono mt-1.5 ${
+                successRate >= 90 ? 'text-emerald-400' : successRate >= 70 ? 'text-amber-400' : 'text-red-400'
+              }`}>
+                {totalReqs > 0 ? `${successRate}%` : '—'}
+              </p>
+              {totalReqs > 0 && (
+                <div className="mt-2 h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+                  <div className={`h-full rounded-full transition-all duration-700 ${
+                    successRate >= 90 ? 'bg-emerald-400' : successRate >= 70 ? 'bg-amber-400' : 'bg-red-400'
+                  }`} style={{ width: `${successRate}%` }} />
+                </div>
+              )}
+            </div>
+            <div className="bg-white/[0.03] rounded-xl p-4 border border-white/[0.04]">
+              <p className="text-xs text-slate-500 uppercase tracking-wider">Avg Latency</p>
+              <p className="text-2xl font-bold font-mono mt-1.5 text-white">
+                {data?.brainStats?.avgLatencyMs ? `${data.brainStats.avgLatencyMs}` : '—'}
+              </p>
+              {data?.brainStats?.avgLatencyMs && <span className="text-xs text-slate-500 font-mono">ms</span>}
+            </div>
+            <div className="bg-white/[0.03] rounded-xl p-4 border border-white/[0.04]">
+              <p className="text-xs text-slate-500 uppercase tracking-wider">Total Success</p>
+              <p className="text-2xl font-bold font-mono mt-1.5 text-emerald-400">{successReqs.toLocaleString()}</p>
+            </div>
+            <div className="bg-white/[0.03] rounded-xl p-4 border border-white/[0.04]">
+              <p className="text-xs text-slate-500 uppercase tracking-wider">Total Errors</p>
+              <p className={`text-2xl font-bold font-mono mt-1.5 ${errorReqs > 0 ? 'text-red-400' : 'text-slate-400'}`}>
+                {errorReqs.toLocaleString()}
+              </p>
             </div>
           </div>
         </div>
 
         {/* Memory Status */}
-        <div className="glass rounded-2xl overflow-hidden border border-white/[0.06]">
+        <div className={CARD}>
           <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/[0.06]">
             <h2 className="text-sm font-semibold text-white flex items-center gap-2">
               <Database className="w-4 h-4 text-cyan-400" />
@@ -414,29 +333,22 @@ export default function DashboardOverview() {
                 ? 'bg-amber-400/10 text-amber-400 border border-amber-400/20'
                 : 'bg-slate-500/10 text-slate-500 border border-slate-500/20'
             }`}>
-              {memory?.statusLabel === 'saving' ? 'ACTIVE' :
-               memory?.statusLabel === 'empty' ? 'EMPTY' : 'NOT CONFIGURED'}
+              {memory?.statusLabel === 'saving' ? 'ACTIVE' : memory?.statusLabel === 'empty' ? 'EMPTY' : 'NOT CONFIGURED'}
             </span>
           </div>
           <div className="p-5 space-y-5">
             <div className="grid grid-cols-3 gap-4">
               <div className="bg-white/[0.03] rounded-xl p-4 border border-white/[0.04]">
-                <p className="text-xs text-slate-500 uppercase tracking-wider">Total Entries</p>
-                <p className="text-2xl font-bold font-mono mt-1.5 text-white">
-                  {(memory?.totalEntries ?? 0).toLocaleString()}
-                </p>
+                <p className="text-xs text-slate-500 uppercase tracking-wider">Entries</p>
+                <p className="text-2xl font-bold font-mono mt-1.5 text-white">{(memory?.totalEntries ?? 0).toLocaleString()}</p>
               </div>
               <div className="bg-white/[0.03] rounded-xl p-4 border border-white/[0.04]">
-                <p className="text-xs text-slate-500 uppercase tracking-wider">App Namespaces</p>
-                <p className="text-2xl font-bold font-mono mt-1.5 text-white">
-                  {memory?.appSlugs?.length ?? 0}
-                </p>
+                <p className="text-xs text-slate-500 uppercase tracking-wider">Namespaces</p>
+                <p className="text-2xl font-bold font-mono mt-1.5 text-white">{memory?.appSlugs?.length ?? 0}</p>
               </div>
               <div className="bg-white/[0.03] rounded-xl p-4 border border-white/[0.04]">
                 <p className="text-xs text-slate-500 uppercase tracking-wider">Retrieval</p>
-                <p className={`text-lg font-bold font-mono mt-1.5 ${
-                  memory?.available ? 'text-emerald-400' : 'text-slate-500'
-                }`}>
+                <p className={`text-lg font-bold font-mono mt-1.5 ${memory?.available ? 'text-emerald-400' : 'text-slate-500'}`}>
                   {memory?.available ? 'Ready' : 'Off'}
                 </p>
               </div>
@@ -446,10 +358,7 @@ export default function DashboardOverview() {
                 <p className="text-xs text-slate-500 mb-2 uppercase tracking-wider">Connected Namespaces</p>
                 <div className="flex flex-wrap gap-1.5">
                   {memory.appSlugs.map(slug => (
-                    <span
-                      key={slug}
-                      className="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-cyan-400/[0.06] text-cyan-400/80 border border-cyan-400/10"
-                    >
+                    <span key={slug} className="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-cyan-400/[0.06] text-cyan-400/80 border border-cyan-400/10">
                       {slug}
                     </span>
                   ))}
@@ -457,36 +366,32 @@ export default function DashboardOverview() {
               </div>
             )}
             {memory?.error && (
-              <p className="text-xs text-red-400/70 font-mono bg-red-400/[0.05] rounded-lg px-3 py-2">
-                {memory.error}
-              </p>
+              <p className="text-xs text-red-400/70 font-mono bg-red-400/[0.05] rounded-lg px-3 py-2">{memory.error}</p>
             )}
           </div>
         </div>
       </motion.div>
 
-      {/* ─── Quick Actions ───────────────────────────────────── */}
+      {/* ─── Quick Actions ──────────────────────────────────────── */}
       <motion.div variants={fadeUp}>
-        <div className="glass rounded-2xl overflow-hidden border border-white/[0.06]">
+        <div className={CARD}>
           <div className="px-5 py-3.5 border-b border-white/[0.06]">
             <h2 className="text-sm font-semibold text-white flex items-center gap-2">
-              <Zap className="w-4 h-4 text-amber-400" />
-              Quick Actions
+              <Zap className="w-4 h-4 text-amber-400" /> Quick Actions
             </h2>
           </div>
-          <div className="p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className="p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             {[
-              { label: 'Providers',  href: '/admin/dashboard/ai-providers', icon: Cpu,          desc: 'Manage AI keys' },
-              { label: 'Models',     href: '/admin/dashboard/models',       icon: Layers,       desc: 'Model registry' },
-              { label: 'Playground', href: '/admin/dashboard/playground',   icon: FlaskConical,  desc: 'Test prompts' },
-              { label: 'Events',     href: '/admin/dashboard/events',       icon: Activity,     desc: 'Logs & alerts' },
-              { label: 'Agents',     href: '/admin/dashboard/agents',       icon: Bot,          desc: 'AI agents' },
-              { label: 'Brain Chat', href: '/admin/dashboard/brain-chat',   icon: MessageSquare, desc: 'Chat with AI' },
+              { label: 'Providers',  href: '/admin/dashboard/ai-providers', icon: Cpu,         desc: 'Manage AI keys' },
+              { label: 'Models',     href: '/admin/dashboard/models',       icon: Layers,      desc: 'Model registry' },
+              { label: 'Playground', href: '/admin/dashboard/playground',   icon: FlaskConical, desc: 'Test prompts' },
+              { label: 'Events',     href: '/admin/dashboard/events',       icon: Activity,    desc: 'Logs & alerts' },
+              { label: 'Agents',     href: '/admin/dashboard/agents',       icon: Bot,         desc: 'AI agents' },
             ].map(item => (
               <Link
                 key={item.href}
                 href={item.href}
-                className="flex flex-col items-center gap-2 px-3 py-4 rounded-xl bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.06] hover:border-blue-500/20 transition-all group text-center"
+                className="flex flex-col items-center gap-2 px-3 py-4 rounded-xl bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.05] hover:border-blue-500/20 transition-all group text-center"
               >
                 <div className="w-9 h-9 rounded-lg bg-white/[0.04] flex items-center justify-center group-hover:bg-blue-500/10 transition-colors">
                   <item.icon className="w-4 h-4 text-slate-500 group-hover:text-blue-400 transition-colors" />
@@ -501,18 +406,14 @@ export default function DashboardOverview() {
         </div>
       </motion.div>
 
-      {/* ─── Recent Events ───────────────────────────────────── */}
+      {/* ─── Recent Events ──────────────────────────────────────── */}
       <motion.div variants={fadeUp}>
-        <div className="glass rounded-2xl overflow-hidden border border-white/[0.06]">
+        <div className={CARD}>
           <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/[0.06]">
             <h2 className="text-sm font-semibold text-white flex items-center gap-2">
-              <Activity className="w-4 h-4 text-blue-400" />
-              Recent Events
+              <Activity className="w-4 h-4 text-blue-400" /> Recent Events
             </h2>
-            <Link
-              href="/admin/dashboard/events"
-              className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors"
-            >
+            <Link href="/admin/dashboard/events" className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors">
               View All <ArrowRight className="w-3 h-3" />
             </Link>
           </div>
@@ -525,25 +426,16 @@ export default function DashboardOverview() {
             ) : (
               <div className="space-y-1">
                 {data?.recentEvents.slice(0, 5).map(ev => {
-                  const sev = SEV[ev.severity as keyof typeof SEV] ?? {
-                    color: 'text-slate-400',
-                    bg: 'bg-white/[0.03]',
-                    dot: 'bg-slate-500',
-                  }
+                  const sev = SEV[ev.severity as keyof typeof SEV] ?? { color: 'text-slate-400', bg: 'bg-white/[0.03]', dot: 'bg-slate-500' }
                   return (
-                    <div
-                      key={ev.id}
-                      className="flex items-center gap-3 py-2.5 px-3 rounded-xl hover:bg-white/[0.03] transition-colors"
-                    >
+                    <div key={ev.id} className="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-white/[0.03] transition-colors">
                       <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${sev.dot}`} />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm text-white truncate">{ev.title}</p>
                         <p className="text-[11px] text-slate-600">{ev.product?.name ?? '—'}</p>
                       </div>
                       <div className="text-right shrink-0 flex items-center gap-2">
-                        <span className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded-md ${sev.bg} ${sev.color}`}>
-                          {ev.severity}
-                        </span>
+                        <span className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded-md ${sev.bg} ${sev.color}`}>{ev.severity}</span>
                         <span className="text-[10px] text-slate-600 font-mono w-20 text-right">
                           {formatDistanceToNow(new Date(ev.timestamp), { addSuffix: true })}
                         </span>
@@ -557,52 +449,35 @@ export default function DashboardOverview() {
         </div>
       </motion.div>
 
-      {/* ─── Connected Apps Table ─────────────────────────────── */}
+      {/* ─── Connected Apps ─────────────────────────────────────── */}
       <motion.div variants={fadeUp}>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-white tracking-wide uppercase flex items-center gap-2">
-            <CircleDot className="w-4 h-4 text-cyan-400" />
-            Connected Apps
+          <h2 className="text-sm font-semibold text-white flex items-center gap-2">
+            <Server className="w-4 h-4 text-cyan-400" /> Connected Apps
           </h2>
-          <Link
-            href="/admin/dashboard/apps"
-            className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors"
-          >
-            Manage Apps <ArrowRight className="w-3 h-3" />
+          <Link href="/admin/dashboard/apps" className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors">
+            Manage <ArrowRight className="w-3 h-3" />
           </Link>
         </div>
         {totalApps === 0 ? (
-          <div className="glass rounded-2xl p-8 text-center border border-white/[0.06]">
-            <Shield className="w-8 h-8 text-slate-600 mx-auto mb-3" />
+          <div className={`${CARD} p-8 text-center`}>
+            <Server className="w-7 h-7 text-slate-600 mx-auto mb-2" />
             <p className="text-sm text-slate-500">No apps registered</p>
-            <Link
-              href="/admin/dashboard/apps"
-              className="mt-2 inline-block text-xs text-blue-400 hover:text-blue-300 transition-colors"
-            >
+            <Link href="/admin/dashboard/apps" className="mt-2 inline-block text-xs text-blue-400 hover:text-blue-300 transition-colors">
               Register your first app →
             </Link>
           </div>
         ) : (
-          <div className="glass rounded-2xl overflow-hidden border border-white/[0.06]">
+          <div className={`${CARD} overflow-hidden`}>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-white/[0.06]">
-                    <th className="text-left text-[11px] text-slate-500 font-medium uppercase tracking-wider px-5 py-3">
-                      App Name
-                    </th>
-                    <th className="text-left text-[11px] text-slate-500 font-medium uppercase tracking-wider px-5 py-3">
-                      Status
-                    </th>
-                    <th className="text-left text-[11px] text-slate-500 font-medium uppercase tracking-wider px-5 py-3">
-                      Health
-                    </th>
-                    <th className="text-left text-[11px] text-slate-500 font-medium uppercase tracking-wider px-5 py-3">
-                      Category
-                    </th>
-                    <th className="text-right text-[11px] text-slate-500 font-medium uppercase tracking-wider px-5 py-3">
-                      Last Seen
-                    </th>
+                    <th className="text-left text-[11px] text-slate-500 font-medium uppercase tracking-wider px-5 py-3">App Name</th>
+                    <th className="text-left text-[11px] text-slate-500 font-medium uppercase tracking-wider px-5 py-3">Status</th>
+                    <th className="text-left text-[11px] text-slate-500 font-medium uppercase tracking-wider px-5 py-3">Health</th>
+                    <th className="text-left text-[11px] text-slate-500 font-medium uppercase tracking-wider px-5 py-3">Category</th>
+                    <th className="text-right text-[11px] text-slate-500 font-medium uppercase tracking-wider px-5 py-3">Last Seen</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -616,23 +491,14 @@ export default function DashboardOverview() {
                       ? { label: 'Error', color: 'text-red-400', dot: 'bg-red-400' }
                       : { label: 'No Integration', color: 'text-slate-500', dot: 'bg-slate-600' }
                     return (
-                      <tr
-                        key={app.id}
-                        className="border-b border-white/[0.04] last:border-0 hover:bg-white/[0.02] transition-colors"
-                      >
-                        <td className="px-5 py-3">
-                          <span className="text-sm text-white font-medium">{app.name}</span>
-                        </td>
+                      <tr key={app.id} className="border-b border-white/[0.04] last:border-0 hover:bg-white/[0.02] transition-colors">
+                        <td className="px-5 py-3"><span className="text-sm text-white font-medium">{app.name}</span></td>
                         <td className="px-5 py-3">
                           <span className={`text-xs font-mono px-2 py-0.5 rounded-full ${
-                            app.status === 'active'
-                              ? 'bg-emerald-400/10 text-emerald-400'
-                              : app.status === 'draft'
-                              ? 'bg-amber-400/10 text-amber-400'
-                              : 'bg-white/[0.04] text-slate-500'
-                          }`}>
-                            {app.status}
-                          </span>
+                            app.status === 'active' ? 'bg-emerald-400/10 text-emerald-400' :
+                            app.status === 'draft' ? 'bg-amber-400/10 text-amber-400' :
+                            'bg-white/[0.04] text-slate-500'
+                          }`}>{app.status}</span>
                         </td>
                         <td className="px-5 py-3">
                           <div className="flex items-center gap-1.5">
@@ -641,9 +507,7 @@ export default function DashboardOverview() {
                           </div>
                         </td>
                         <td className="px-5 py-3">
-                          <span className="text-xs text-slate-500 font-mono">
-                            {app.integration ? 'integrated' : 'standalone'}
-                          </span>
+                          <span className="text-xs text-slate-500 font-mono">{app.integration ? 'integrated' : 'standalone'}</span>
                         </td>
                         <td className="px-5 py-3 text-right">
                           <span className="text-xs text-slate-600 font-mono">
