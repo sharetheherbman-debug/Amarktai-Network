@@ -196,98 +196,221 @@ function MemoryTab({ data }: { data: unknown }) {
 
 /* ── learning tab ──────────────────────────────────────────── */
 
+interface LearningInsight { type?: string; title?: string; description?: string; impact?: string }
+interface ProviderPerf { providerKey?: string; totalRequests?: number; successRate?: number; avgLatencyMs?: number; failureCount?: number }
+
 function LearningTab({ data }: { data: unknown }) {
-  const d = data as { insights?: unknown[]; status?: string } | null
-  const hasData = d?.insights && d.insights.length > 0
+  const d = data as {
+    status?: string; statusLabel?: string; available?: boolean
+    totalOutcomesLogged?: number; totalInsights?: number; providerCount?: number
+    appCount?: number; lastLearningRun?: string | null
+    insights?: LearningInsight[]; performance?: ProviderPerf[]
+  } | null
+
+  const statusLabel = d?.statusLabel ?? d?.status ?? 'unknown'
+  const statusColor = statusLabel === 'active' ? 'bg-emerald-400' : statusLabel === 'collecting' ? 'bg-amber-400' : 'bg-white/20'
+
+  const stats = [
+    { label: 'Status', value: statusLabel.replace(/_/g, ' '), extra: <StatusDot color={statusColor} /> },
+    { label: 'Outcomes Logged', value: d?.totalOutcomesLogged ?? 0 },
+    { label: 'Insights', value: d?.totalInsights ?? 0 },
+    { label: 'Providers Tracked', value: d?.providerCount ?? 0 },
+  ]
+
+  const insights = d?.insights ?? []
+  const performance = d?.performance ?? []
+  const isEmpty = !insights.length && !performance.length && (d?.totalOutcomesLogged ?? 0) === 0
 
   return (
     <div className="space-y-4">
-      {hasData ? (
-        <div className={`${CARD} p-5`}>
-          <p className="mb-3 text-xs font-medium uppercase tracking-wider text-white/30">Insights</p>
-          <ul className="space-y-2">
-            {(d!.insights as Array<{ label?: string; value?: string }>).slice(0, 10).map((item, i) => (
-              <li key={i} className={`${INNER} text-sm text-white/60`}>
-                {item.label ?? item.value ?? JSON.stringify(item)}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : (
-        <div className={`${CARD} p-10 text-center space-y-4`}>
-          <Brain className="mx-auto h-10 w-10 text-white/15" />
-          <p className="text-sm text-white/40">Learning insights will be available in Phase 2</p>
-          <div className="mx-auto grid max-w-sm grid-cols-3 gap-3 pt-2">
-            {['Pattern Detection', 'Cost Optimization', 'Model Ranking'].map(l => (
-              <div key={l} className="rounded-xl bg-white/[0.02] border border-white/[0.04] p-3">
-                <div className="mb-2 h-6 w-6 rounded-lg bg-white/[0.04] mx-auto" />
-                <p className="text-[10px] text-white/25">{l}</p>
-              </div>
-            ))}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {stats.map((c, i) => (
+          <motion.div key={i} className={INNER} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
+            <p className="text-[11px] uppercase tracking-wider text-white/30">{c.label}</p>
+            <div className="mt-1 flex items-center gap-2 text-xl font-semibold text-white/90">
+              {c.extra}{String(c.value)}
+            </div>
+          </motion.div>
+        ))}
+      </div>
+
+      {performance.length > 0 && (
+        <div className={`${CARD} overflow-hidden`}>
+          <div className="px-5 pt-4 pb-2">
+            <p className="text-xs font-medium uppercase tracking-wider text-white/30">Provider Performance</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-white/[0.06] text-[11px] uppercase tracking-wider text-white/30">
+                  <th className="px-4 py-3">Provider</th>
+                  <th className="px-4 py-3">Requests</th>
+                  <th className="px-4 py-3">Success Rate</th>
+                  <th className="px-4 py-3">Avg Latency</th>
+                  <th className="px-4 py-3">Failures</th>
+                </tr>
+              </thead>
+              <tbody>
+                {performance.map((p, i) => (
+                  <motion.tr key={p.providerKey ?? i} className="border-b border-white/[0.03] hover:bg-white/[0.02] transition"
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }}>
+                    <td className="px-4 py-3 font-mono text-xs text-blue-300/80">{p.providerKey ?? '—'}</td>
+                    <td className="px-4 py-3 text-white/70">{p.totalRequests ?? 0}</td>
+                    <td className="px-4 py-3 text-white/70">{p.successRate != null ? `${(p.successRate * 100).toFixed(1)}%` : '—'}</td>
+                    <td className="px-4 py-3 text-white/50">{p.avgLatencyMs != null ? `${Math.round(p.avgLatencyMs)}ms` : '—'}</td>
+                    <td className="px-4 py-3 text-white/50">{p.failureCount ?? 0}</td>
+                  </motion.tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
+
+      {insights.length > 0 && (
+        <div className={`${CARD} p-5`}>
+          <p className="mb-3 text-xs font-medium uppercase tracking-wider text-white/30">Insights</p>
+          <ul className="space-y-2">
+            {insights.slice(0, 20).map((item, i) => (
+              <motion.li key={i} className={`${INNER} text-sm`}
+                initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-white/70 font-medium">{item.title ?? item.type ?? 'Insight'}</p>
+                    {item.description && <p className="mt-1 text-xs text-white/40">{item.description}</p>}
+                  </div>
+                  {item.impact && (
+                    <span className={`shrink-0 rounded-md px-2 py-0.5 text-[10px] font-medium ${
+                      item.impact === 'high' ? 'bg-red-500/10 text-red-300/80' :
+                      item.impact === 'medium' ? 'bg-amber-500/10 text-amber-300/80' :
+                      'bg-blue-500/10 text-blue-300/80'
+                    }`}>{item.impact}</span>
+                  )}
+                </div>
+              </motion.li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {isEmpty && <Placeholder icon={Brain} message="No learning insights yet." />}
     </div>
   )
 }
 
 /* ── agents tab ────────────────────────────────────────────── */
 
+interface AgentEntry { id?: string; name?: string; type?: string; description?: string; capabilities?: string[]; status?: string }
+interface AgentStatus { configuredAgents?: number; runningTasks?: number; completedTasks?: number; failedTasks?: number; totalTasks?: number }
+
 function AgentsTab({ data }: { data: unknown }) {
-  const d = data as { agents?: Array<{ name?: string; status?: string; type?: string; id?: string }> } | null
+  const d = data as { agents?: AgentEntry[]; status?: AgentStatus } | null
   const agents = d?.agents ?? []
+  const status = d?.status
 
   if (!agents.length) {
-    return (
-      <div className={`${CARD} p-10 text-center space-y-4`}>
-        <Cpu className="mx-auto h-10 w-10 text-white/15" />
-        <p className="text-sm text-white/40">Agent management coming in Phase 2</p>
-        <div className="mx-auto grid max-w-md grid-cols-2 gap-3 pt-2">
-          {['Task Agents', 'Router Agents', 'Memory Agents', 'Healing Agents'].map(a => (
-            <div key={a} className="rounded-xl bg-white/[0.02] border border-dashed border-white/[0.06] p-4 text-left">
-              <div className="mb-2 h-3 w-16 rounded bg-white/[0.04]" />
-              <p className="text-[11px] text-white/20">{a}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    )
+    return <Placeholder icon={Cpu} message="No agents configured." />
   }
 
+  const runtimeStats = status ? [
+    { label: 'Configured', value: status.configuredAgents ?? agents.length },
+    { label: 'Running', value: status.runningTasks ?? 0 },
+    { label: 'Completed', value: status.completedTasks ?? 0 },
+    { label: 'Failed', value: status.failedTasks ?? 0 },
+    { label: 'Total Tasks', value: status.totalTasks ?? 0 },
+  ] : null
+
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      {agents.map((a, i) => (
-        <motion.div key={a.id ?? i} className={`${CARD} p-5`}
-          initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
-          <div className="flex items-center gap-3">
-            <Bot className="h-5 w-5 text-blue-400/60" />
-            <div>
-              <p className="text-sm font-medium text-white/80">{a.name ?? `Agent ${i + 1}`}</p>
-              <p className="text-xs text-white/30">{a.type ?? 'general'}</p>
+    <div className="space-y-4">
+      {runtimeStats && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+          {runtimeStats.map((s, i) => (
+            <motion.div key={s.label} className={INNER} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
+              <p className="text-[11px] uppercase tracking-wider text-white/30">{s.label}</p>
+              <p className="mt-1 text-xl font-semibold text-white/90">{s.value}</p>
+            </motion.div>
+          ))}
+        </div>
+      )}
+
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {agents.map((a, i) => (
+          <motion.div key={a.id ?? i} className={`${CARD} p-5`}
+            initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
+            <div className="flex items-start gap-3">
+              <Bot className="mt-0.5 h-5 w-5 shrink-0 text-blue-400/60" />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium text-white/80 truncate">{a.name ?? `Agent ${i + 1}`}</p>
+                  <StatusDot color={a.status === 'active' || a.status === 'running' ? 'bg-emerald-400' : 'bg-white/20'} />
+                </div>
+                <p className="text-xs text-white/30">{a.type ?? 'general'}</p>
+                {a.description && <p className="mt-2 text-xs text-white/40 line-clamp-2">{a.description}</p>}
+                {a.capabilities && a.capabilities.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {a.capabilities.map(cap => (
+                      <span key={cap} className="rounded-md bg-blue-500/10 border border-blue-400/20 px-2 py-0.5 text-[10px] text-blue-300/80">
+                        {cap}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-            <StatusDot color={a.status === 'active' ? 'bg-emerald-400' : 'bg-white/20'} />
-          </div>
-        </motion.div>
-      ))}
+          </motion.div>
+        ))}
+      </div>
     </div>
   )
 }
 
 /* ── capabilities tab ──────────────────────────────────────── */
 
-function CapabilitiesTab() {
+interface CapabilityEntry { capability?: string; available?: boolean }
+
+function CapabilitiesTab({ routingData }: { routingData: unknown }) {
+  const d = routingData as { capabilities?: CapabilityEntry[] } | null
+  const capabilities = d?.capabilities ?? []
+
+  if (!capabilities.length) {
+    return <Placeholder icon={Zap} message="Capability status unavailable." />
+  }
+
+  const available = capabilities.filter(c => c.available).length
+  const unavailable = capabilities.length - available
+
+  const stats = [
+    { label: 'Total', value: capabilities.length },
+    { label: 'Available', value: available },
+    { label: 'Unavailable', value: unavailable },
+  ]
+
   return (
-    <div className={`${CARD} p-10 text-center space-y-6`}>
-      <Zap className="mx-auto h-10 w-10 text-white/15" />
-      <p className="text-sm text-white/40">Capability mapping will be available in Phase 2</p>
-      <div className="mx-auto max-w-lg space-y-3 pt-2">
-        {['Text Generation', 'Image Analysis', 'Code Execution', 'Web Search', 'Data Retrieval'].map(cap => (
-          <div key={cap} className="flex items-center gap-3 rounded-xl bg-white/[0.02] border border-white/[0.04] px-4 py-3">
-            <div className="h-2.5 w-2.5 rounded-full bg-white/[0.06]" />
-            <span className="text-xs text-white/25">{cap}</span>
-            <div className="ml-auto h-2 w-24 rounded-full bg-white/[0.04]" />
-          </div>
+    <div className="space-y-4">
+      <div className="grid grid-cols-3 gap-3">
+        {stats.map((s, i) => (
+          <motion.div key={s.label} className={INNER} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
+            <p className="text-[11px] uppercase tracking-wider text-white/30">{s.label}</p>
+            <p className="mt-1 text-xl font-semibold text-white/90">{s.value}</p>
+          </motion.div>
         ))}
+      </div>
+
+      <div className={`${CARD} p-5`}>
+        <p className="mb-3 text-xs font-medium uppercase tracking-wider text-white/30">Capability Map</p>
+        <div className="space-y-2">
+          {capabilities.map((cap, i) => (
+            <motion.div key={cap.capability ?? i}
+              className="flex items-center gap-3 rounded-xl bg-white/[0.02] border border-white/[0.04] px-4 py-3"
+              initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}>
+              <StatusDot color={cap.available ? 'bg-emerald-400' : 'bg-red-400'} />
+              <span className="text-sm text-white/60">{(cap.capability ?? 'unknown').replace(/_/g, ' ')}</span>
+              <span className={`ml-auto text-[10px] font-medium ${cap.available ? 'text-emerald-400/70' : 'text-red-400/70'}`}>
+                {cap.available ? 'Available' : 'Unavailable'}
+              </span>
+            </motion.div>
+          ))}
+        </div>
       </div>
     </div>
   )
@@ -306,12 +429,12 @@ const API_MAP: Record<TabKey, string | null> = {
 export default function IntelligencePage() {
   const [tab, setTab] = useState<TabKey>('routing')
 
-  const routing  = useTabFetch(API_MAP.routing,  tab === 'routing')
+  const routing  = useTabFetch(API_MAP.routing,  tab === 'routing' || tab === 'capabilities')
   const memory   = useTabFetch(API_MAP.memory,   tab === 'memory')
   const learning = useTabFetch(API_MAP.learning,  tab === 'learning')
   const agents   = useTabFetch(API_MAP.agents,    tab === 'agents')
 
-  const current = { routing, memory, learning, agents, capabilities: { data: null, loading: false, error: null, reload: () => {} } }[tab]
+  const current = { routing, memory, learning, agents, capabilities: routing }[tab]
 
   return (
     <div className="space-y-8">
@@ -344,7 +467,7 @@ export default function IntelligencePage() {
       </div>
 
       {/* refresh */}
-      {API_MAP[tab] && (
+      {(API_MAP[tab] || tab === 'capabilities') && (
         <div className="flex justify-end">
           <button onClick={current.reload}
             className="flex items-center gap-1.5 rounded-lg bg-white/[0.04] px-3 py-1.5 text-xs text-white/40 hover:bg-white/[0.08] hover:text-white/60 transition">
@@ -367,7 +490,7 @@ export default function IntelligencePage() {
               {tab === 'memory'       && <MemoryTab data={memory.data} />}
               {tab === 'learning'     && <LearningTab data={learning.data} />}
               {tab === 'agents'       && <AgentsTab data={agents.data} />}
-              {tab === 'capabilities' && <CapabilitiesTab />}
+              {tab === 'capabilities' && <CapabilitiesTab routingData={routing.data} />}
             </>
           )}
         </motion.div>
