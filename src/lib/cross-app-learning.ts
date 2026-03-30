@@ -61,11 +61,13 @@ export interface CrossAppInsight {
 // In-memory store
 // ---------------------------------------------------------------------------
 
+const MAX_STORED_PATTERNS = 500;
+
 const patternStore: CrossAppPattern[] = [];
 let patternIdCounter = 0;
 
 function nextPatternId(): string {
-  return `xap_${++patternIdCounter}_${Date.now()}`;
+  return `xap_${++patternIdCounter}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -88,8 +90,8 @@ export function recordPattern(
   patternStore.push(pattern);
 
   // Keep store bounded
-  if (patternStore.length > 500) {
-    patternStore.splice(0, patternStore.length - 500);
+  if (patternStore.length > MAX_STORED_PATTERNS) {
+    patternStore.splice(0, patternStore.length - MAX_STORED_PATTERNS);
   }
 
   return pattern;

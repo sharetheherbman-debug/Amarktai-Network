@@ -13,7 +13,6 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import {
   classifyCapabilities,
   resolveCapabilityRoutes,
-  isCapabilityAvailable,
   getCapabilityStatus,
   CAPABILITY_MAP,
   type CapabilityClass,
@@ -349,7 +348,7 @@ describe('Cross-App Learning', () => {
 
   describe('discoverPatterns', () => {
     it('discovers model performance patterns from outcome data', () => {
-      const outcomes = Array.from({ length: 10 }, (_, i) => ({
+      const outcomes = Array.from({ length: 10 }, () => ({
         appSlug: 'app1',
         appType: 'marketing',
         taskType: 'chat',

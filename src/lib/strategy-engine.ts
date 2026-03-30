@@ -154,7 +154,7 @@ const STRATEGY_TEMPLATES: Record<string, StrategyTemplate> = {
 
 let idCounter = 0;
 function nextId(prefix: string): string {
-  return `${prefix}_${++idCounter}_${Date.now()}`;
+  return `${prefix}_${++idCounter}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
 function kpiStatus(kpi: Pick<KpiTarget, 'targetValue' | 'currentValue' | 'direction'>): KpiTarget['status'] {

@@ -463,8 +463,15 @@ function StrategyTab({ appSlug, appName, appCategory }: { appSlug: string; appNa
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'initialize', appSlug, appName, appType: appCategory || 'general' }),
       })
-      if (res.ok) await loadStrategy()
-    } catch { /* ignore */ }
+      if (res.ok) {
+        await loadStrategy()
+      } else {
+        setStratError('Failed to initialize strategy')
+      }
+    } catch (e) {
+      console.error('[strategy] init error:', e)
+      setStratError('Failed to initialize strategy')
+    }
   }
 
   if (stratLoading) {
