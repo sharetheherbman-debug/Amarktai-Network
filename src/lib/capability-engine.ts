@@ -460,7 +460,7 @@ const BACKEND_ROUTE_EXISTS: Record<CapabilityClass, boolean> = {
   image_generation:          true,   // /api/brain/request (DALL-E / FLUX)
   image_editing:             true,   // /api/brain/request (DALL-E)
   video_planning:            true,   // /api/brain/request (AI text — always possible via chat models)
-  video_generation:          false,  // no real video generation provider wired — returns error when requested
+  video_generation:          false,  // /api/brain/video route exists but returns stub — no real provider integration wired (Gemini Veo / Runway keys not processed)
   voice_input:               true,   // /api/brain/stt + /api/voice/stt (Groq Whisper / OpenAI Whisper / Gemini Live)
   voice_output:              true,   // /api/brain/tts + /api/voice/tts (Groq PlayAI / OpenAI TTS / Gemini TTS)
   realtime_voice:            false,  // no WebSocket / realtime voice endpoint
