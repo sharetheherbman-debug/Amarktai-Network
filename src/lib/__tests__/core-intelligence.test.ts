@@ -83,6 +83,21 @@ describe('Capability Engine', () => {
       expect(caps).toContain('video_generation')
     })
 
+    it('classifies video planning tasks', () => {
+      const caps = classifyCapabilities('media', 'plan a video storyboard for marketing')
+      expect(caps).toContain('video_planning')
+    })
+
+    it('classifies video planning from reel/animation patterns', () => {
+      const caps = classifyCapabilities('content', 'create a reel animation for instagram')
+      expect(caps).toContain('video_planning')
+    })
+
+    it('classifies voice output / TTS tasks', () => {
+      const caps = classifyCapabilities('media', 'text to speech for this article')
+      expect(caps).toContain('voice_output')
+    })
+
     it('classifies summarization tasks', () => {
       const caps = classifyCapabilities('summarize', 'summarize this article briefly')
       expect(caps).toContain('summarization')
@@ -205,6 +220,14 @@ describe('Capability Engine', () => {
     it('marks image_generation as having a backend route', () => {
       expect(BACKEND_ROUTE_EXISTS.image_generation).toBe(true)
     })
+
+    it('marks video_planning as having a backend route (always possible via chat)', () => {
+      expect(BACKEND_ROUTE_EXISTS.video_planning).toBe(true)
+    })
+
+    it('marks video_generation as having no backend route (no real provider wired)', () => {
+      expect(BACKEND_ROUTE_EXISTS.video_generation).toBe(false)
+    })
   })
 
   describe('isCapabilityAvailable', () => {
@@ -282,6 +305,36 @@ describe('Capability Engine', () => {
         expect(entry!.available).toBe(false)
         expect(entry!.reason).toBeTruthy()
       }
+    })
+
+    it('video_planning exists as a capability class', () => {
+      const entries = getDetailedCapabilityStatus()
+      const planning = entries.find(e => e.capability === 'video_planning')
+      expect(planning).toBeDefined()
+      expect(planning!.routeExists).toBe(true)
+    })
+
+    it('video_generation is truthfully marked unavailable (no real provider)', () => {
+      const entries = getDetailedCapabilityStatus()
+      const gen = entries.find(e => e.capability === 'video_generation')
+      expect(gen).toBeDefined()
+      expect(gen!.available).toBe(false)
+      expect(gen!.routeExists).toBe(false)
+      expect(gen!.reason).toContain('Route not implemented')
+    })
+
+    it('voice_input route exists and is truthfully tracked', () => {
+      const entries = getDetailedCapabilityStatus()
+      const stt = entries.find(e => e.capability === 'voice_input')
+      expect(stt).toBeDefined()
+      expect(stt!.routeExists).toBe(true)
+    })
+
+    it('voice_output route exists and is truthfully tracked', () => {
+      const entries = getDetailedCapabilityStatus()
+      const tts = entries.find(e => e.capability === 'voice_output')
+      expect(tts).toBeDefined()
+      expect(tts!.routeExists).toBe(true)
     })
   })
 })
