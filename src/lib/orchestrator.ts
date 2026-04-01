@@ -414,6 +414,8 @@ export interface OrchestrationResult {
   errors: string[]
   latencyMs: number
   classification: ClassificationResult
+  /** Human-readable explanation of why this provider/model was chosen. */
+  routingReason?: string
 }
 
 /**
@@ -484,6 +486,7 @@ export async function orchestrate(opts: {
       errors: ['No AI provider is available — all providers are unconfigured or disabled'],
       latencyMs: Date.now() - start,
       classification,
+      routingReason: decision.reason,
     }
   }
 
