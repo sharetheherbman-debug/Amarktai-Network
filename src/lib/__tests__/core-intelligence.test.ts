@@ -711,10 +711,10 @@ describe('HuggingFace Fallback', () => {
     it('handles capability with no HF models', () => {
       const result = getHfFallback('deep_reasoning')
       expect(result.capability).toBe('deep_reasoning')
-      // deep_reasoning has no HF fallback models
-      if (!result.available) {
-        expect(result.reason).toContain('No HuggingFace fallback')
-      }
+      // deep_reasoning has no HF fallback models — result is unavailable
+      // either because HF is not configured or because no models are cataloged
+      expect(result.available).toBe(false)
+      expect(result.reason).toBeTruthy()
     })
   })
 
