@@ -3,16 +3,17 @@ import { NextRequest, NextResponse } from 'next/server';
 /**
  * POST /api/brain/tts — Text-to-Speech endpoint
  *
- * Dual-provider support:
+ * Multi-provider support:
  *   - Groq TTS (low-cost, fast — playai-tts / playai-tts-arabic)
  *   - OpenAI TTS (premium — tts-1 / tts-1-hd)
+ *   - Gemini TTS (premium multimodal — gemini-2.5-flash-preview-tts)
  *
  * Accepts a JSON body with:
  *   - text (string, required) — the text to synthesise
  *   - voiceId (string, optional) — voice identifier (default: provider-specific)
  *   - model (string, optional) — TTS model (default: auto-selected by provider)
  *   - speed (number, optional) — playback speed 0.25–4.0 (default: 1.0)
- *   - provider (string, optional) — 'groq' | 'openai' | 'auto' (default: 'auto')
+ *   - provider (string, optional) — 'groq' | 'openai' | 'gemini' | 'auto' (default: 'auto')
  *
  * Returns audio/mpeg stream on success.
  *
@@ -33,9 +34,10 @@ export async function POST(request: NextRequest) {
 
     const groqKey = process.env.GROQ_API_KEY;
     const openaiKey = process.env.OPENAI_API_KEY;
+    const geminiKey = process.env.GEMINI_API_KEY;
 
     // Determine provider
-    let provider: 'groq' | 'openai';
+    let provider: 'groq' | 'openai' | 'gemini';
     if (requestedProvider === 'groq') {
       if (!groqKey) {
         return NextResponse.json(
@@ -52,15 +54,25 @@ export async function POST(request: NextRequest) {
         );
       }
       provider = 'openai';
+    } else if (requestedProvider === 'gemini') {
+      if (!geminiKey) {
+        return NextResponse.json(
+          { error: 'Gemini TTS requested but GEMINI_API_KEY is not configured.', executed: false, provider: 'gemini', capability: 'voice_output' },
+          { status: 503 },
+        );
+      }
+      provider = 'gemini';
     } else {
-      // Auto: prefer Groq (low-cost, fast), fallback to OpenAI
+      // Auto: prefer Groq (low-cost, fast), fallback to OpenAI, then Gemini
       if (groqKey) {
         provider = 'groq';
       } else if (openaiKey) {
         provider = 'openai';
+      } else if (geminiKey) {
+        provider = 'gemini';
       } else {
         return NextResponse.json(
-          { error: 'No TTS provider configured. Set GROQ_API_KEY (low cost) or OPENAI_API_KEY (premium) to enable voice output.', executed: false, capability: 'voice_output' },
+          { error: 'No TTS provider configured. Set GROQ_API_KEY (low cost), OPENAI_API_KEY (premium), or GEMINI_API_KEY (multimodal) to enable voice output.', executed: false, capability: 'voice_output' },
           { status: 503 },
         );
       }
@@ -100,6 +112,57 @@ export async function POST(request: NextRequest) {
           'Content-Type': 'audio/mpeg',
           'Content-Length': String(audioBuffer.byteLength),
           'X-Provider': 'groq',
+          'X-Model': model,
+        },
+      });
+    }
+
+    if (provider === 'gemini') {
+      // Gemini TTS via Google Generative Language API
+      const model = requestedModel ?? 'gemini-2.5-flash-preview-tts';
+      const voice = voiceId ?? 'Kore';
+
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text }] }],
+            generationConfig: {
+              responseModalities: ['AUDIO'],
+              speechConfig: {
+                voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } },
+              },
+            },
+          }),
+        },
+      );
+
+      if (!response.ok) {
+        const err = await response.text();
+        return NextResponse.json(
+          { error: 'Gemini TTS generation failed', detail: err, executed: false, provider: 'gemini', model },
+          { status: response.status },
+        );
+      }
+
+      const result = await response.json();
+      const audioData = result?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+      if (!audioData) {
+        return NextResponse.json(
+          { error: 'Gemini TTS returned no audio data', executed: false, provider: 'gemini', model },
+          { status: 502 },
+        );
+      }
+
+      const audioBuffer = Buffer.from(audioData, 'base64');
+      return new NextResponse(audioBuffer, {
+        status: 200,
+        headers: {
+          'Content-Type': 'audio/mpeg',
+          'Content-Length': String(audioBuffer.byteLength),
+          'X-Provider': 'gemini',
           'X-Model': model,
         },
       });

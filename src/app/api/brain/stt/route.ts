@@ -3,15 +3,16 @@ import { NextRequest, NextResponse } from 'next/server';
 /**
  * POST /api/brain/stt — Speech-to-Text endpoint
  *
- * Dual-provider support:
+ * Multi-provider support:
  *   - Groq STT (low-cost, fast — whisper-large-v3 / distil-whisper-large-v3-en)
  *   - OpenAI STT (premium — whisper-1)
+ *   - Gemini STT (premium multimodal — gemini-2.0-flash-live-001)
  *
  * Accepts multipart/form-data with:
  *   - file (audio file, required) — audio to transcribe
  *   - model (string, optional) — Whisper model (default: auto-selected by provider)
  *   - language (string, optional) — ISO language code
- *   - provider (string, optional) — 'groq' | 'openai' | 'auto' (default: 'auto')
+ *   - provider (string, optional) — 'groq' | 'openai' | 'gemini' | 'auto' (default: 'auto')
  *
  * Returns:
  *   { transcript, model, language, provider, executed: true }
@@ -47,9 +48,10 @@ export async function POST(request: NextRequest) {
 
     const groqKey = process.env.GROQ_API_KEY;
     const openaiKey = process.env.OPENAI_API_KEY;
+    const geminiKey = process.env.GEMINI_API_KEY;
 
     // Determine provider
-    let provider: 'groq' | 'openai';
+    let provider: 'groq' | 'openai' | 'gemini';
     if (requestedProvider === 'groq') {
       if (!groqKey) {
         return NextResponse.json(
@@ -66,15 +68,25 @@ export async function POST(request: NextRequest) {
         );
       }
       provider = 'openai';
+    } else if (requestedProvider === 'gemini') {
+      if (!geminiKey) {
+        return NextResponse.json(
+          { error: 'Gemini STT requested but GEMINI_API_KEY is not configured.', executed: false, provider: 'gemini', capability: 'voice_input' },
+          { status: 503 },
+        );
+      }
+      provider = 'gemini';
     } else {
-      // Auto: prefer Groq (low-cost, fast), fallback to OpenAI
+      // Auto: prefer Groq (low-cost, fast), fallback to OpenAI, then Gemini
       if (groqKey) {
         provider = 'groq';
       } else if (openaiKey) {
         provider = 'openai';
+      } else if (geminiKey) {
+        provider = 'gemini';
       } else {
         return NextResponse.json(
-          { error: 'No STT provider configured. Set GROQ_API_KEY (low cost) or OPENAI_API_KEY (premium) to enable voice input.', executed: false, capability: 'voice_input' },
+          { error: 'No STT provider configured. Set GROQ_API_KEY (low cost), OPENAI_API_KEY (premium), or GEMINI_API_KEY (multimodal) to enable voice input.', executed: false, capability: 'voice_input' },
           { status: 503 },
         );
       }
@@ -82,7 +94,7 @@ export async function POST(request: NextRequest) {
 
     // Select model
     const model = requestedModel
-      ?? (provider === 'groq' ? 'whisper-large-v3' : 'whisper-1');
+      ?? (provider === 'groq' ? 'whisper-large-v3' : provider === 'gemini' ? 'gemini-2.0-flash-live-001' : 'whisper-1');
 
     if (provider === 'groq') {
       // Groq STT via OpenAI-compatible endpoint
@@ -111,6 +123,52 @@ export async function POST(request: NextRequest) {
         model,
         language,
         provider: 'groq',
+        executed: true,
+        fallback_used: false,
+        capability: 'voice_input',
+      });
+    }
+
+    if (provider === 'gemini') {
+      // Gemini STT via Google Generative Language API
+      const audioBytes = Buffer.from(await file.arrayBuffer());
+      const audioBase64 = audioBytes.toString('base64');
+      const mimeType = (file as File).type || 'audio/webm';
+
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  { inline_data: { mime_type: mimeType, data: audioBase64 } },
+                  { text: language ? `Transcribe this audio. The language is ${language}.` : 'Transcribe this audio accurately.' },
+                ],
+              },
+            ],
+            generationConfig: { temperature: 0, maxOutputTokens: 8192 },
+          }),
+        },
+      );
+
+      if (!response.ok) {
+        const err = await response.text();
+        return NextResponse.json(
+          { error: 'Gemini transcription failed', detail: err, executed: false, provider: 'gemini', model },
+          { status: response.status },
+        );
+      }
+
+      const result = await response.json();
+      const transcript = result?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+      return NextResponse.json({
+        transcript,
+        model,
+        language,
+        provider: 'gemini',
         executed: true,
         fallback_used: false,
         capability: 'voice_input',
