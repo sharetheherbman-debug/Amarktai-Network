@@ -189,8 +189,9 @@ export async function POST(request: NextRequest) {
 
     if (provider === 'huggingface') {
       // HuggingFace Inference API — free fallback STT
-      const ALLOWED_HF_STT_MODELS = ['openai/whisper-large-v3', 'openai/whisper-small', 'openai/whisper-base'];
-      const hfModel = ALLOWED_HF_STT_MODELS.includes(model) ? model : 'openai/whisper-large-v3';
+      const ALLOWED_HF_STT_MODELS = ['openai/whisper-large-v3', 'openai/whisper-small', 'openai/whisper-base'] as const;
+      const matched = ALLOWED_HF_STT_MODELS.find((m) => m === model);
+      const hfModel = matched ?? 'openai/whisper-large-v3';
       const audioBytes = Buffer.from(await file.arrayBuffer());
 
       const response = await fetch(`https://api-inference.huggingface.co/models/${hfModel}`, {

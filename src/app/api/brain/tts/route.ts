@@ -182,8 +182,9 @@ export async function POST(request: NextRequest) {
 
     if (provider === 'huggingface') {
       // HuggingFace Inference API — free fallback TTS
-      const ALLOWED_HF_TTS_MODELS = ['facebook/mms-tts-eng', 'facebook/mms-tts-fra'];
-      const hfModel = ALLOWED_HF_TTS_MODELS.includes(requestedModel ?? '') ? requestedModel! : 'facebook/mms-tts-eng';
+      const ALLOWED_HF_TTS_MODELS = ['facebook/mms-tts-eng', 'facebook/mms-tts-fra'] as const;
+      const matched = ALLOWED_HF_TTS_MODELS.find((m) => m === requestedModel);
+      const hfModel = matched ?? 'facebook/mms-tts-eng';
 
       const response = await fetch(`https://api-inference.huggingface.co/models/${hfModel}`, {
         method: 'POST',
