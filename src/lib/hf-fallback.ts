@@ -41,9 +41,12 @@ const HF_FALLBACK_MODELS: Partial<Record<CapabilityClass, HfFallbackSpec[]>> = {
   ],
   voice_input: [
     { model: 'openai/whisper-base', label: 'Whisper Base', notes: 'Speech-to-text transcription' },
+    { model: 'openai/whisper-small', label: 'Whisper Small', notes: 'Higher accuracy STT, multilingual' },
+    { model: 'openai/whisper-large-v3', label: 'Whisper Large v3', notes: 'Best accuracy STT, multilingual, slower' },
   ],
   voice_output: [
-    { model: 'facebook/mms-tts-eng', label: 'MMS TTS', notes: 'English text-to-speech' },
+    { model: 'facebook/mms-tts-eng', label: 'MMS TTS English', notes: 'English text-to-speech' },
+    { model: 'facebook/mms-tts-fra', label: 'MMS TTS French', notes: 'French text-to-speech' },
   ],
   general_chat: [
     { model: 'mistralai/Mistral-7B-Instruct-v0.3', label: 'Mistral 7B', notes: 'General instruction following' },

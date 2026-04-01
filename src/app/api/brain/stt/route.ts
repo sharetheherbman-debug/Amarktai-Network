@@ -4,15 +4,16 @@ import { NextRequest, NextResponse } from 'next/server';
  * POST /api/brain/stt — Speech-to-Text endpoint
  *
  * Multi-provider support:
- *   - Groq STT (low-cost, fast — whisper-large-v3 / distil-whisper-large-v3-en)
+ *   - Groq STT (low-cost, fast — whisper-large-v3 / distil-whisper-large-v3-en / whisper-large-v3-turbo)
  *   - OpenAI STT (premium — whisper-1)
  *   - Gemini STT (premium multimodal — gemini-2.0-flash-live-001)
+ *   - HuggingFace STT (free fallback — openai/whisper-large-v3 / openai/whisper-small)
  *
  * Accepts multipart/form-data with:
  *   - file (audio file, required) — audio to transcribe
  *   - model (string, optional) — Whisper model (default: auto-selected by provider)
  *   - language (string, optional) — ISO language code
- *   - provider (string, optional) — 'groq' | 'openai' | 'gemini' | 'auto' (default: 'auto')
+ *   - provider (string, optional) — 'groq' | 'openai' | 'gemini' | 'huggingface' | 'auto' (default: 'auto')
  *
  * Returns:
  *   { transcript, model, language, provider, executed: true }
@@ -49,9 +50,10 @@ export async function POST(request: NextRequest) {
     const groqKey = process.env.GROQ_API_KEY;
     const openaiKey = process.env.OPENAI_API_KEY;
     const geminiKey = process.env.GEMINI_API_KEY;
+    const hfKey = process.env.HUGGINGFACE_API_KEY;
 
     // Determine provider
-    let provider: 'groq' | 'openai' | 'gemini';
+    let provider: 'groq' | 'openai' | 'gemini' | 'huggingface';
     if (requestedProvider === 'groq') {
       if (!groqKey) {
         return NextResponse.json(
@@ -76,17 +78,27 @@ export async function POST(request: NextRequest) {
         );
       }
       provider = 'gemini';
+    } else if (requestedProvider === 'huggingface') {
+      if (!hfKey) {
+        return NextResponse.json(
+          { error: 'HuggingFace STT requested but HUGGINGFACE_API_KEY is not configured.', executed: false, provider: 'huggingface', capability: 'voice_input' },
+          { status: 503 },
+        );
+      }
+      provider = 'huggingface';
     } else {
-      // Auto: prefer Groq (low-cost, fast), fallback to OpenAI, then Gemini
+      // Auto: prefer Groq (low-cost, fast), fallback to OpenAI, then Gemini, then HuggingFace
       if (groqKey) {
         provider = 'groq';
       } else if (openaiKey) {
         provider = 'openai';
       } else if (geminiKey) {
         provider = 'gemini';
+      } else if (hfKey) {
+        provider = 'huggingface';
       } else {
         return NextResponse.json(
-          { error: 'No STT provider configured. Set GROQ_API_KEY (low cost), OPENAI_API_KEY (premium), or GEMINI_API_KEY (multimodal) to enable voice input.', executed: false, capability: 'voice_input' },
+          { error: 'No STT provider configured. Set GROQ_API_KEY (low cost), OPENAI_API_KEY (premium), GEMINI_API_KEY (multimodal), or HUGGINGFACE_API_KEY (free fallback) to enable voice input.', executed: false, capability: 'voice_input' },
           { status: 503 },
         );
       }
@@ -94,7 +106,7 @@ export async function POST(request: NextRequest) {
 
     // Select model
     const model = requestedModel
-      ?? (provider === 'groq' ? 'whisper-large-v3' : provider === 'gemini' ? 'gemini-2.0-flash-live-001' : 'whisper-1');
+      ?? (provider === 'groq' ? 'whisper-large-v3' : provider === 'gemini' ? 'gemini-2.0-flash-live-001' : provider === 'huggingface' ? 'openai/whisper-large-v3' : 'whisper-1');
 
     if (provider === 'groq') {
       // Groq STT via OpenAI-compatible endpoint
@@ -171,6 +183,39 @@ export async function POST(request: NextRequest) {
         provider: 'gemini',
         executed: true,
         fallback_used: false,
+        capability: 'voice_input',
+      });
+    }
+
+    if (provider === 'huggingface') {
+      // HuggingFace Inference API — free fallback STT
+      const audioBytes = Buffer.from(await file.arrayBuffer());
+
+      const response = await fetch(`https://api-inference.huggingface.co/models/${model}`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${hfKey}`,
+          'Content-Type': (file as File).type || 'audio/webm',
+        },
+        body: audioBytes,
+      });
+
+      if (!response.ok) {
+        const err = await response.text();
+        return NextResponse.json(
+          { error: 'HuggingFace transcription failed', detail: err, executed: false, provider: 'huggingface', model },
+          { status: response.status },
+        );
+      }
+
+      const result = await response.json();
+      return NextResponse.json({
+        transcript: result.text ?? '',
+        model,
+        language,
+        provider: 'huggingface',
+        executed: true,
+        fallback_used: true,
         capability: 'voice_input',
       });
     }

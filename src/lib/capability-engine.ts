@@ -147,13 +147,13 @@ const CAPABILITY_MAP: Record<CapabilityClass, CapabilityRequirement> = {
     anyCapabilityFlag: ['supports_stt', 'supports_voice_interaction'],
     anyRole: ['voice_interaction'],
     label: 'voice / speech input (STT)',
-    suggestedProviders: ['groq', 'openai'],
+    suggestedProviders: ['groq', 'openai', 'gemini', 'huggingface'],
   },
   voice_output: {
     anyCapabilityFlag: ['supports_tts'],
     anyRole: ['tts'],
     label: 'voice / speech output (TTS)',
-    suggestedProviders: ['groq', 'openai'],
+    suggestedProviders: ['groq', 'openai', 'gemini', 'huggingface'],
   },
   realtime_voice: {
     anyCapabilityFlag: ['supports_voice_interaction'],
@@ -461,9 +461,9 @@ const BACKEND_ROUTE_EXISTS: Record<CapabilityClass, boolean> = {
   image_editing:             true,   // /api/brain/request (DALL-E)
   video_planning:            true,   // /api/brain/request (AI text — always possible via chat models)
   video_generation:          false,  // /api/brain/video route exists but returns stub — no real provider integration wired (Gemini Veo / Runway keys not processed)
-  voice_input:               true,   // /api/brain/stt + /api/voice/stt (Groq Whisper / OpenAI Whisper / Gemini Live)
-  voice_output:              true,   // /api/brain/tts + /api/voice/tts (Groq PlayAI / OpenAI TTS / Gemini TTS)
-  realtime_voice:            false,  // no WebSocket / realtime voice endpoint
+  voice_input:               true,   // /api/brain/stt + /api/voice/stt (Groq Whisper / OpenAI Whisper / Gemini Live / HuggingFace Whisper)
+  voice_output:              true,   // /api/brain/tts + /api/voice/tts (Groq PlayAI / OpenAI TTS / Gemini TTS / HuggingFace MMS)
+  realtime_voice:            false,  // BLOCKER: Next.js API routes do not support WebSocket connections required for bidirectional streaming voice. Requires a separate WebSocket server or edge runtime with streaming support.
   adult_18plus_image:        false,  // no provider reliably supports unrestricted adult content
   moderation:                true,   // /api/brain/request (OpenAI moderation)
   app_analysis:              true,   // /api/brain/request
