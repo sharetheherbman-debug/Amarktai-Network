@@ -48,7 +48,10 @@ export type CapabilityClass =
   | 'moderation'
   | 'app_analysis'
   | 'research_search'
-  | 'scraping_extraction';
+  | 'deep_research'
+  | 'scraping_extraction'
+  | 'suggestive_image_generation'
+  | 'suggestive_video_planning';
 
 export type ExecutionPreference = 'cheap' | 'balanced' | 'premium';
 
@@ -147,13 +150,13 @@ const CAPABILITY_MAP: Record<CapabilityClass, CapabilityRequirement> = {
     anyCapabilityFlag: ['supports_stt', 'supports_voice_interaction'],
     anyRole: ['voice_interaction'],
     label: 'voice / speech input (STT)',
-    suggestedProviders: ['groq', 'openai'],
+    suggestedProviders: ['groq', 'openai', 'gemini', 'huggingface'],
   },
   voice_output: {
     anyCapabilityFlag: ['supports_tts'],
     anyRole: ['tts'],
     label: 'voice / speech output (TTS)',
-    suggestedProviders: ['groq', 'openai'],
+    suggestedProviders: ['groq', 'openai', 'gemini', 'huggingface'],
   },
   realtime_voice: {
     anyCapabilityFlag: ['supports_voice_interaction'],
@@ -180,10 +183,25 @@ const CAPABILITY_MAP: Record<CapabilityClass, CapabilityRequirement> = {
     label: 'research / web search',
     suggestedProviders: ['openai', 'deepseek', 'gemini'],
   },
+  deep_research: {
+    anyCapabilityFlag: ['supports_reasoning', 'supports_chat'],
+    label: 'deep multi-step research',
+    suggestedProviders: ['openai', 'gemini'],
+  },
   scraping_extraction: {
     anyCapabilityFlag: ['supports_chat'],
     label: 'web scraping / data extraction',
     suggestedProviders: ['openai', 'deepseek'],
+  },
+  suggestive_image_generation: {
+    anyCapabilityFlag: ['supports_image_generation'],
+    label: 'suggestive image generation (non-explicit)',
+    suggestedProviders: ['openai', 'huggingface'],
+  },
+  suggestive_video_planning: {
+    anyCapabilityFlag: ['supports_video_planning', 'supports_chat'],
+    label: 'suggestive video planning (non-explicit)',
+    suggestedProviders: ['openai', 'gemini'],
   },
 };
 
@@ -216,7 +234,10 @@ const CLASSIFICATION_RULES: Array<{
   { patterns: [/moderate/i, /filter/i, /safe/i], capabilities: ['moderation'] },
   { patterns: [/onboard/i, /discover/i, /app.*analy/i, /crawl/i, /inspect/i], capabilities: ['app_analysis'] },
   { patterns: [/research/i, /web.*search/i, /find.*info/i], capabilities: ['research_search'] },
+  { patterns: [/deep.*research/i, /multi[- ]step.*research/i, /thorough.*research/i, /in[- ]depth.*research/i], capabilities: ['deep_research'] },
   { patterns: [/scrap/i, /extract/i, /parse.*page/i], capabilities: ['scraping_extraction'] },
+  { patterns: [/suggestive.*image/i, /image.*suggestive/i, /lingerie/i, /swimwear/i, /swimsuit/i, /bikini/i, /fashion.*model/i, /model.*pose/i], capabilities: ['suggestive_image_generation'] },
+  { patterns: [/suggestive.*video/i, /video.*suggestive/i, /fashion.*video/i, /model.*video/i, /beach.*video/i, /gym.*reel/i], capabilities: ['suggestive_video_planning'] },
 ];
 
 export function classifyCapabilities(
@@ -305,6 +326,8 @@ export interface CapabilityRouteRequest {
   blockedProviders?: string[];
   safeMode?: boolean;
   adultMode?: boolean;
+  /** When true, suggestive (non-explicit) content capabilities are enabled. Requires safeMode=false. */
+  suggestiveMode?: boolean;
   preference?: ExecutionPreference;
   maxCostTier?: string;
 }
@@ -364,6 +387,22 @@ export function resolveCapabilityRoutes(
       missingCapabilities.push(
         'Adult 18+ image requires adult mode enabled.',
       );
+      continue;
+    }
+
+    // Suggestive capability guard: requires safeMode=false AND suggestiveMode=true
+    if (
+      (cap === 'suggestive_image_generation' || cap === 'suggestive_video_planning') &&
+      !request.suggestiveMode
+    ) {
+      routes.push({
+        capability: cap,
+        models: [],
+        available: false,
+        missingMessage:
+          `${CAPABILITY_MAP[cap]?.label ?? cap} requires suggestive mode to be enabled for this app (safeMode must be off). Enable suggestive mode in app settings.`,
+      });
+      missingCapabilities.push(`${cap} requires suggestive mode enabled.`);
       continue;
     }
 
@@ -460,15 +499,18 @@ const BACKEND_ROUTE_EXISTS: Record<CapabilityClass, boolean> = {
   image_generation:          true,   // /api/brain/request (DALL-E / FLUX)
   image_editing:             true,   // /api/brain/request (DALL-E)
   video_planning:            true,   // /api/brain/request (AI text — always possible via chat models)
-  video_generation:          false,  // /api/brain/video route exists but returns stub — no real provider integration wired (Gemini Veo / Runway keys not processed)
-  voice_input:               true,   // /api/brain/stt + /api/voice/stt (Groq Whisper / OpenAI Whisper / Gemini Live)
-  voice_output:              true,   // /api/brain/tts + /api/voice/tts (Groq PlayAI / OpenAI TTS / Gemini TTS)
-  realtime_voice:            false,  // no WebSocket / realtime voice endpoint
-  adult_18plus_image:        false,  // no provider reliably supports unrestricted adult content
+  video_generation:          false,  // BLOCKER: /api/brain/video returns planning data only — no provider SDK (Gemini Veo, Runway, Pika, Stability) is integrated to render scenes into actual video files. API key presence alone is not sufficient; a rendering pipeline must be implemented.
+  voice_input:               true,   // /api/brain/stt + /api/voice/stt (Groq Whisper / OpenAI Whisper / Gemini Live / HuggingFace Whisper)
+  voice_output:              true,   // /api/brain/tts + /api/voice/tts (Groq PlayAI / OpenAI TTS / Gemini TTS / HuggingFace MMS)
+  realtime_voice:            false,  // BLOCKER: Next.js API routes do not support WebSocket connections required for bidirectional streaming voice. Requires a separate WebSocket server or edge runtime with streaming support.
+  adult_18plus_image:        false,  // BLOCKER: No provider route is integrated for lawful adult 18+ image generation. Requires: (1) a provider with policy-compliant adult content support, (2) an API route to invoke it, (3) per-app adult mode gating, (4) content filter enforcement. All four conditions must be met before this can be set to true.
   moderation:                true,   // /api/brain/request (OpenAI moderation)
   app_analysis:              true,   // /api/brain/request
-  research_search:           true,   // /api/brain/request
+  research_search:           true,   // /api/brain/request + /api/brain/research
+  deep_research:             true,   // /api/brain/research (multi-step reasoning)
   scraping_extraction:       true,   // /api/brain/request
+  suggestive_image_generation: true, // /api/brain/suggestive-image (prompt-guarded, safeMode+suggestiveMode gated)
+  suggestive_video_planning:   true, // /api/brain/suggestive-video (planning only, no generation)
 };
 
 // ---------------------------------------------------------------------------

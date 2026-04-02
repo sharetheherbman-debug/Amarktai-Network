@@ -29,6 +29,13 @@ const HF_FALLBACK_MODELS: Partial<Record<CapabilityClass, HfFallbackSpec[]>> = {
     { model: 'stabilityai/stable-diffusion-xl-base-1.0', label: 'SDXL Base', notes: 'High-quality general image generation' },
     { model: 'runwayml/stable-diffusion-v1-5', label: 'SD v1.5', notes: 'Fast and reliable image generation' },
   ],
+  // suggestive_image_generation uses safe-prompt-enforced diffusion models.
+  // Prompts are validated and sanitized by validateSuggestivePrompt() before
+  // being sent to any provider. No nudity or explicit content is allowed.
+  suggestive_image_generation: [
+    { model: 'stabilityai/stable-diffusion-xl-base-1.0', label: 'SDXL Base', notes: 'Fashion/lifestyle image generation with safe-prompt enforcement' },
+    { model: 'stabilityai/stable-diffusion-2-1', label: 'SD 2.1', notes: 'Reliable fallback with controlled prompts' },
+  ],
   embeddings: [
     { model: 'sentence-transformers/all-MiniLM-L6-v2', label: 'MiniLM-L6', notes: 'Fast sentence embeddings' },
     { model: 'BAAI/bge-base-en-v1.5', label: 'BGE Base', notes: 'High-quality embeddings' },
@@ -41,9 +48,12 @@ const HF_FALLBACK_MODELS: Partial<Record<CapabilityClass, HfFallbackSpec[]>> = {
   ],
   voice_input: [
     { model: 'openai/whisper-base', label: 'Whisper Base', notes: 'Speech-to-text transcription' },
+    { model: 'openai/whisper-small', label: 'Whisper Small', notes: 'Higher accuracy STT, multilingual' },
+    { model: 'openai/whisper-large-v3', label: 'Whisper Large v3', notes: 'Best accuracy STT, multilingual, slower' },
   ],
   voice_output: [
-    { model: 'facebook/mms-tts-eng', label: 'MMS TTS', notes: 'English text-to-speech' },
+    { model: 'facebook/mms-tts-eng', label: 'MMS TTS English', notes: 'English text-to-speech' },
+    { model: 'facebook/mms-tts-fra', label: 'MMS TTS French', notes: 'French text-to-speech' },
   ],
   general_chat: [
     { model: 'mistralai/Mistral-7B-Instruct-v0.3', label: 'Mistral 7B', notes: 'General instruction following' },
@@ -57,9 +67,10 @@ const HF_FALLBACK_MODELS: Partial<Record<CapabilityClass, HfFallbackSpec[]>> = {
   classification: [
     { model: 'facebook/bart-large-mnli', label: 'BART MNLI', notes: 'Zero-shot classification' },
   ],
-  adult_18plus_image: [
-    { model: 'stabilityai/stable-diffusion-xl-base-1.0', label: 'SDXL Base (unfiltered)', notes: 'Requires unfiltered endpoint / safety bypass' },
-  ],
+  // adult_18plus_image: intentionally excluded — no HuggingFace model can reliably
+  // serve lawful adult 18+ content without safety-bypass infrastructure that does
+  // not exist on this platform. Do not add entries here unless a real, policy-compliant
+  // provider route is implemented and gated through the adult mode enforcement pipeline.
 };
 
 // ---------------------------------------------------------------------------

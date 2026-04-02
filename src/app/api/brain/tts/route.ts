@@ -7,13 +7,14 @@ import { NextRequest, NextResponse } from 'next/server';
  *   - Groq TTS (low-cost, fast — playai-tts / playai-tts-arabic)
  *   - OpenAI TTS (premium — tts-1 / tts-1-hd)
  *   - Gemini TTS (premium multimodal — gemini-2.5-flash-preview-tts)
+ *   - HuggingFace TTS (free fallback — facebook/mms-tts-eng / facebook/mms-tts-fra)
  *
  * Accepts a JSON body with:
  *   - text (string, required) — the text to synthesise
  *   - voiceId (string, optional) — voice identifier (default: provider-specific)
  *   - model (string, optional) — TTS model (default: auto-selected by provider)
  *   - speed (number, optional) — playback speed 0.25–4.0 (default: 1.0)
- *   - provider (string, optional) — 'groq' | 'openai' | 'gemini' | 'auto' (default: 'auto')
+ *   - provider (string, optional) — 'groq' | 'openai' | 'gemini' | 'huggingface' | 'auto' (default: 'auto')
  *
  * Returns audio/mpeg stream on success.
  *
@@ -35,9 +36,10 @@ export async function POST(request: NextRequest) {
     const groqKey = process.env.GROQ_API_KEY;
     const openaiKey = process.env.OPENAI_API_KEY;
     const geminiKey = process.env.GEMINI_API_KEY;
+    const hfKey = process.env.HUGGINGFACE_API_KEY;
 
     // Determine provider
-    let provider: 'groq' | 'openai' | 'gemini';
+    let provider: 'groq' | 'openai' | 'gemini' | 'huggingface';
     if (requestedProvider === 'groq') {
       if (!groqKey) {
         return NextResponse.json(
@@ -62,17 +64,27 @@ export async function POST(request: NextRequest) {
         );
       }
       provider = 'gemini';
+    } else if (requestedProvider === 'huggingface') {
+      if (!hfKey) {
+        return NextResponse.json(
+          { error: 'HuggingFace TTS requested but HUGGINGFACE_API_KEY is not configured.', executed: false, provider: 'huggingface', capability: 'voice_output' },
+          { status: 503 },
+        );
+      }
+      provider = 'huggingface';
     } else {
-      // Auto: prefer Groq (low-cost, fast), fallback to OpenAI, then Gemini
+      // Auto: prefer Groq (low-cost, fast), fallback to OpenAI, then Gemini, then HuggingFace
       if (groqKey) {
         provider = 'groq';
       } else if (openaiKey) {
         provider = 'openai';
       } else if (geminiKey) {
         provider = 'gemini';
+      } else if (hfKey) {
+        provider = 'huggingface';
       } else {
         return NextResponse.json(
-          { error: 'No TTS provider configured. Set GROQ_API_KEY (low cost), OPENAI_API_KEY (premium), or GEMINI_API_KEY (multimodal) to enable voice output.', executed: false, capability: 'voice_output' },
+          { error: 'No TTS provider configured. Set GROQ_API_KEY (low cost), OPENAI_API_KEY (premium), GEMINI_API_KEY (multimodal), or HUGGINGFACE_API_KEY (free fallback) to enable voice output.', executed: false, capability: 'voice_output' },
           { status: 503 },
         );
       }
@@ -164,6 +176,41 @@ export async function POST(request: NextRequest) {
           'Content-Length': String(audioBuffer.byteLength),
           'X-Provider': 'gemini',
           'X-Model': model,
+        },
+      });
+    }
+
+    if (provider === 'huggingface') {
+      // HuggingFace Inference API — free fallback TTS
+      const ALLOWED_HF_TTS_MODELS = ['facebook/mms-tts-eng', 'facebook/mms-tts-fra'] as const;
+      const matched = ALLOWED_HF_TTS_MODELS.find((m) => m === requestedModel);
+      const hfModel = matched ?? 'facebook/mms-tts-eng';
+
+      const response = await fetch(`https://api-inference.huggingface.co/models/${hfModel}`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${hfKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ inputs: text }),
+      });
+
+      if (!response.ok) {
+        const err = await response.text();
+        return NextResponse.json(
+          { error: 'HuggingFace TTS generation failed', detail: err, executed: false, provider: 'huggingface', model: hfModel },
+          { status: response.status },
+        );
+      }
+
+      const audioBuffer = await response.arrayBuffer();
+      return new NextResponse(audioBuffer, {
+        status: 200,
+        headers: {
+          'Content-Type': 'audio/mpeg',
+          'Content-Length': String(audioBuffer.byteLength),
+          'X-Provider': 'huggingface',
+          'X-Model': hfModel,
         },
       });
     }

@@ -24,7 +24,8 @@ export type FlagCategory =
   | 'non_consensual'
   | 'hate_speech'
   | 'violence'
-  | 'self_harm';
+  | 'self_harm'
+  | 'terrorism';
 
 export interface ContentFilterResult {
   flagged: boolean;
@@ -50,6 +51,12 @@ export interface SafetyConfig {
   safeMode: boolean;
   /** When true, non-harmful adult content is allowed. Requires safeMode=false. */
   adultMode: boolean;
+  /**
+   * When true, suggestive but non-explicit content is allowed (lingerie, swimwear,
+   * fashion poses, attractive people). No nudity or explicit acts.
+   * Requires safeMode=false. Less permissive than adultMode.
+   */
+  suggestiveMode: boolean;
 }
 
 // ── Default safety configuration ─────────────────────────────────────
@@ -57,6 +64,7 @@ export interface SafetyConfig {
 const DEFAULT_SAFETY_CONFIG: SafetyConfig = {
   safeMode: true,
   adultMode: false,
+  suggestiveMode: false,
 };
 
 /** Runtime per-app safety overrides. */
@@ -71,10 +79,14 @@ export function setAppSafetyConfig(appSlug: string, config: Partial<SafetyConfig
   const updated: SafetyConfig = {
     safeMode: config.safeMode ?? current.safeMode,
     adultMode: config.adultMode ?? current.adultMode,
+    suggestiveMode: config.suggestiveMode ?? current.suggestiveMode,
   };
-  // Adult mode requires safe mode to be off
+  // Adult mode and suggestive mode both require safe mode to be off
   if (updated.adultMode && updated.safeMode) {
     updated.adultMode = false;
+  }
+  if (updated.suggestiveMode && updated.safeMode) {
+    updated.suggestiveMode = false;
   }
   appSafetyConfigs.set(appSlug, updated);
   return updated;
@@ -114,11 +126,17 @@ const CATEGORY_PATTERNS: Record<FlagCategory, RegExp[]> = {
     /\bself[- ]?harm\s+method/i,
     /\bkill\s+yourself/i,
   ],
+  terrorism: [
+    /\bjoin\s+(isis|isil|al[- ]?qaeda|boko\s+haram)/i,
+    /\brecruit.*\b(jiha[di]|extremis)/i,
+    /\b(terror|extremis)\s+(attack|plot|cell)\s+(plan|instruct|manual)/i,
+    /\bradicaliz/i,
+  ],
 };
 
 // ── Always-blocked categories (even in adult mode) ───────────────────
 
-const ALWAYS_BLOCKED: FlagCategory[] = ['csam', 'non_consensual', 'violence', 'self_harm', 'hate_speech'];
+const ALWAYS_BLOCKED: FlagCategory[] = ['csam', 'non_consensual', 'violence', 'self_harm', 'hate_speech', 'terrorism'];
 
 // ── Public helpers ───────────────────────────────────────────────────
 
@@ -228,6 +246,9 @@ function mapOpenAIModerationResult(
   if (result.categories['self-harm'] || result.categories['self-harm/instructions'] || result.categories['self-harm/intent']) {
     flagged.push('self_harm');
   }
+  // OpenAI does not have a dedicated terrorism category — extremist content is
+  // typically caught under harassment/threatening or violence.  Our keyword
+  // scanner covers terrorism patterns explicitly.
 
   // Deduplicate
   const unique = [...new Set(flagged)];
@@ -308,6 +329,7 @@ export function blockedExplanation(categories: FlagCategory[]): string {
     hate_speech: 'Content promoting hatred or violence against groups is not allowed.',
     violence: 'Instructions for creating weapons or causing harm are prohibited.',
     self_harm: 'Content promoting self-harm or suicide is not permitted.',
+    terrorism: 'Content promoting terrorism or violent extremism is strictly prohibited.',
   };
 
   const reasons = categories.map((c) => explanations[c]).filter(Boolean);
@@ -317,4 +339,100 @@ export function blockedExplanation(categories: FlagCategory[]): string {
     '\n\nIf you believe this is a false positive, please contact support with your trace ID ' +
     'to request a manual review. Our team will respond within 24 hours.'
   );
+}
+
+// ── Suggestive content prompt guard ─────────────────────────────────────────
+
+/**
+ * Terms that are never allowed even in suggestive mode.
+ * Covers nudity, explicit acts, and minors — distinct from ALWAYS_BLOCKED
+ * which covers the most severe policy violations.
+ */
+const SUGGESTIVE_BLOCKED_TERMS: RegExp[] = [
+  // Nudity / explicit exposure
+  /\bnude\b/i,
+  /\bnudity\b/i,
+  /\bnaked\b/i,
+  /\btopless\b/i,
+  /\bbare\s+(chest|breasts?|nipples?|genitali[ae]|butt|buttocks|ass)\b/i,
+  /\bexposed?\s+(breast|nipple|genitali[ae]|penis|vagina|vulva)\b/i,
+  // Explicit sexual acts
+  /\bsex(ual)?\s+act\b/i,
+  /\bintercourse\b/i,
+  /\bporn(ography)?\b/i,
+  /\bxxx\b/i,
+  /\berotic\s+(fiction|story|art|film|video)\b/i,
+  /\bsexually\s+explicit\b/i,
+  // Minors in any suggestive context — "underage" and "child/minor/preteen" always blocked in image context
+  /\bunderage\b/i,
+  /\b(child|minor|preteen|juvenile)\s+(model|pose|photo|image|picture|lingerie|swimsuit|swimwear|bikini|in|wearing)\b/i,
+  // "teen" is blocked as a conservative safety measure — 13-17 are minors.
+  // Legitimate 18+ content should use "adult", "woman", "man", or similar terms.
+  /\bteen\s+(model|pose|photo|image|picture|lingerie|swimsuit|swimwear|bikini|in|wearing)\b/i,
+  /\b(child|minor|underage|teen|preteen|juvenile)\s+(sexy|suggestive|seductive|provocative)\b/i,
+];
+
+/** Terms to replace with safe alternatives when auto-rewriting a prompt. */
+const SUGGESTIVE_REPLACEMENTS: [RegExp, string][] = [
+  [/\bnude\b/gi, 'tasteful'],
+  [/\bnudity\b/gi, 'fashion'],
+  [/\bnaked\b/gi, 'casually dressed'],
+  [/\bsexy\b/gi, 'attractive'],
+  [/\bseductive\b/gi, 'confident'],
+  [/\bprovocative\b/gi, 'stylish'],
+];
+
+export interface SuggestivePromptValidation {
+  /** Whether the prompt is allowed for suggestive generation. */
+  allowed: boolean;
+  /** Human-readable reason for blocking, if applicable. */
+  reason?: string;
+  /**
+   * A sanitized version of the prompt with soft unsafe terms replaced.
+   * Only populated when allowed=true (applied to the original prompt).
+   * When allowed=false, equals the original prompt.
+   */
+  sanitized: string;
+}
+
+/**
+ * Validate and sanitize a prompt intended for suggestive image/video generation.
+ *
+ * Rules:
+ *  1. All ALWAYS_BLOCKED categories (CSAM, violence, terrorism, etc.) are blocked.
+ *  2. Nudity, explicit sexual acts, and minors in suggestive contexts are blocked.
+ *  3. Soft unsafe terms (e.g. "sexy") are replaced with neutral equivalents.
+ *
+ * Use this before sending a prompt to any image generation provider in
+ * suggestive mode. If `allowed` is false, do NOT proceed with generation.
+ */
+export function validateSuggestivePrompt(prompt: string): SuggestivePromptValidation {
+  // 1. Check ALWAYS_BLOCKED categories first
+  const categoryResult = scanContent(prompt);
+  if (categoryResult.flagged) {
+    return {
+      allowed: false,
+      reason: `Prompt blocked: contains always-prohibited content (${categoryResult.categories.join(', ')}).`,
+      sanitized: prompt,
+    };
+  }
+
+  // 2. Check suggestive-specific blocked terms
+  for (const re of SUGGESTIVE_BLOCKED_TERMS) {
+    if (re.test(prompt)) {
+      return {
+        allowed: false,
+        reason: `Prompt blocked: contains prohibited term matching "${re.source}". Suggestive mode does not allow nudity, explicit sexual acts, or minors in suggestive contexts.`,
+        sanitized: prompt,
+      };
+    }
+  }
+
+  // 3. Apply soft replacements to sanitize the prompt
+  let sanitized = prompt;
+  for (const [pattern, replacement] of SUGGESTIVE_REPLACEMENTS) {
+    sanitized = sanitized.replace(pattern, replacement);
+  }
+
+  return { allowed: true, sanitized };
 }
