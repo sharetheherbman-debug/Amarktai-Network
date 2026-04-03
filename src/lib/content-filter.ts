@@ -52,9 +52,9 @@ export interface SafetyConfig {
   /** When true, non-harmful adult content is allowed. Requires safeMode=false. */
   adultMode: boolean;
   /**
-   * When true, suggestive but non-explicit content is allowed (lingerie, swimwear,
-   * fashion poses, attractive people). No nudity or explicit acts.
-   * Requires safeMode=false. Less permissive than adultMode.
+   * When true, suggestive but non-explicit content is allowed (lingerie, bikini,
+   * flirting, swearing, topless nudity only). Blocks explicit sex and illegal content.
+   * Requires safeMode=false.
    */
   suggestiveMode: boolean;
 }
@@ -345,17 +345,13 @@ export function blockedExplanation(categories: FlagCategory[]): string {
 
 /**
  * Terms that are never allowed even in suggestive mode.
- * Covers nudity, explicit acts, and minors — distinct from ALWAYS_BLOCKED
+ * Covers explicit sex acts, illegal content, and minors — distinct from ALWAYS_BLOCKED
  * which covers the most severe policy violations.
+ *
+ * Suggestive mode ALLOWS: lingerie, bikini, flirting, swearing, topless nudity only.
+ * Suggestive mode BLOCKS: explicit sex, illegal content.
  */
 const SUGGESTIVE_BLOCKED_TERMS: RegExp[] = [
-  // Nudity / explicit exposure
-  /\bnude\b/i,
-  /\bnudity\b/i,
-  /\bnaked\b/i,
-  /\btopless\b/i,
-  /\bbare\s+(chest|breasts?|nipples?|genitali[ae]|butt|buttocks|ass)\b/i,
-  /\bexposed?\s+(breast|nipple|genitali[ae]|penis|vagina|vulva)\b/i,
   // Explicit sexual acts
   /\bsex(ual)?\s+act\b/i,
   /\bintercourse\b/i,
@@ -363,20 +359,20 @@ const SUGGESTIVE_BLOCKED_TERMS: RegExp[] = [
   /\bxxx\b/i,
   /\berotic\s+(fiction|story|art|film|video)\b/i,
   /\bsexually\s+explicit\b/i,
-  // Minors in any suggestive context — "underage" and "child/minor/preteen" always blocked in image context
+  /\bfull\s+frontal\s+nud/i,
+  /\bgenitali[ae]\b/i,
+  /\bpenis\b/i,
+  /\bvagina\b/i,
+  /\bvulva\b/i,
+  // Minors in any suggestive context — always blocked
   /\bunderage\b/i,
   /\b(child|minor|preteen|juvenile)\s+(model|pose|photo|image|picture|lingerie|swimsuit|swimwear|bikini|in|wearing)\b/i,
-  // "teen" is blocked as a conservative safety measure — 13-17 are minors.
-  // Legitimate 18+ content should use "adult", "woman", "man", or similar terms.
   /\bteen\s+(model|pose|photo|image|picture|lingerie|swimsuit|swimwear|bikini|in|wearing)\b/i,
   /\b(child|minor|underage|teen|preteen|juvenile)\s+(sexy|suggestive|seductive|provocative)\b/i,
 ];
 
 /** Terms to replace with safe alternatives when auto-rewriting a prompt. */
 const SUGGESTIVE_REPLACEMENTS: [RegExp, string][] = [
-  [/\bnude\b/gi, 'tasteful'],
-  [/\bnudity\b/gi, 'fashion'],
-  [/\bnaked\b/gi, 'casually dressed'],
   [/\bsexy\b/gi, 'attractive'],
   [/\bseductive\b/gi, 'confident'],
   [/\bprovocative\b/gi, 'stylish'],
@@ -398,9 +394,19 @@ export interface SuggestivePromptValidation {
 /**
  * Validate and sanitize a prompt intended for suggestive image/video generation.
  *
+ * Suggestive mode allows:
+ *  - lingerie, bikini, swimwear
+ *  - flirting, swearing
+ *  - topless nudity only
+ *
+ * Suggestive mode blocks:
+ *  - explicit sex / pornography
+ *  - illegal content
+ *  - minors in any suggestive context
+ *
  * Rules:
  *  1. All ALWAYS_BLOCKED categories (CSAM, violence, terrorism, etc.) are blocked.
- *  2. Nudity, explicit sexual acts, and minors in suggestive contexts are blocked.
+ *  2. Explicit sexual acts and minors in suggestive contexts are blocked.
  *  3. Soft unsafe terms (e.g. "sexy") are replaced with neutral equivalents.
  *
  * Use this before sending a prompt to any image generation provider in
@@ -422,7 +428,7 @@ export function validateSuggestivePrompt(prompt: string): SuggestivePromptValida
     if (re.test(prompt)) {
       return {
         allowed: false,
-        reason: `Prompt blocked: contains prohibited term matching "${re.source}". Suggestive mode does not allow nudity, explicit sexual acts, or minors in suggestive contexts.`,
+        reason: `Prompt blocked: contains prohibited term matching "${re.source}". Suggestive mode allows lingerie, bikini, flirting, swearing, and topless nudity only — explicit sex and illegal content are blocked.`,
         sanitized: prompt,
       };
     }

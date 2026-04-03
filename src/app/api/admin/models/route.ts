@@ -4,8 +4,10 @@ import {
   getModelRegistry,
   getModelsByProvider,
   getModelsByRole,
+  getModelsByCategory,
   getEnabledModels,
   getValidatorEligibleModels,
+  getCategorySummary,
 } from '@/lib/model-registry'
 
 /**
@@ -14,6 +16,7 @@ import {
  * Query params:
  *   provider  (optional — filter by provider key)
  *   role      (optional — filter by primary/secondary role)
+ *   category  (optional — filter by model category: text/image/video/voice/code/multimodal)
  *   enabled   (optional — 'true' to show only enabled)
  *   validator (optional — 'true' to show only validator-eligible)
  */
@@ -26,6 +29,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const provider = searchParams.get('provider')
   const role = searchParams.get('role')
+  const category = searchParams.get('category')
   const enabledOnly = searchParams.get('enabled') === 'true'
   const validatorOnly = searchParams.get('validator') === 'true'
 
@@ -38,6 +42,11 @@ export async function GET(request: NextRequest) {
     const roleModels = getModelsByRole(role as import('@/lib/model-registry').ModelRole)
     const roleIds = new Set(roleModels.map(m => `${m.provider}:${m.model_id}`))
     models = models.filter(m => roleIds.has(`${m.provider}:${m.model_id}`))
+  }
+  if (category) {
+    const catModels = getModelsByCategory(category as import('@/lib/model-registry').ModelCategory)
+    const catIds = new Set(catModels.map(m => `${m.provider}:${m.model_id}`))
+    models = models.filter(m => catIds.has(`${m.provider}:${m.model_id}`))
   }
   if (enabledOnly) {
     const enabled = getEnabledModels()
@@ -59,5 +68,6 @@ export async function GET(request: NextRequest) {
     })),
     total: models.length,
     registrySize: getModelRegistry().length,
+    categorySummary: getCategorySummary(),
   })
 }
