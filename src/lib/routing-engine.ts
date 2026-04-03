@@ -180,7 +180,7 @@ function getEligibleModels(profile: AppProfile): ModelEntry[] {
  *
  * If no modality is specified, returns all eligible models.
  */
-function filterByModality(models: ModelEntry[], modality?: 'text' | 'image' | 'video' | 'voice'): ModelEntry[] {
+export function filterByModality(models: ModelEntry[], modality?: 'text' | 'image' | 'video' | 'voice'): ModelEntry[] {
   if (!modality || modality === 'text') return models
 
   switch (modality) {

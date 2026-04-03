@@ -348,14 +348,16 @@ export default function LabPage() {
                 type="button"
                 onClick={() => {
                   if (typeof window !== 'undefined' && 'webkitSpeechRecognition' in window) {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    const SpeechRecognition = (window as any).webkitSpeechRecognition
+                    const SpeechRecognition = (window as unknown as { webkitSpeechRecognition: new () => {
+                      continuous: boolean; interimResults: boolean; lang: string;
+                      onresult: (event: { results?: Array<Array<{ transcript?: string }>> }) => void;
+                      start: () => void;
+                    } }).webkitSpeechRecognition
                     const recognition = new SpeechRecognition()
                     recognition.continuous = false
                     recognition.interimResults = false
                     recognition.lang = 'en-US'
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    recognition.onresult = (event: any) => {
+                    recognition.onresult = (event) => {
                       const transcript = event.results?.[0]?.[0]?.transcript ?? ''
                       if (transcript) setPrompt(prev => prev ? `${prev} ${transcript}` : transcript)
                     }

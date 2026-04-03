@@ -133,7 +133,9 @@ export default function DashboardOverview() {
       try {
         const budgetRes = await fetch('/api/admin/budgets')
         if (budgetRes.ok) setBudgetData(await budgetRes.json())
-      } catch { /* best-effort */ }
+      } catch (err) {
+        console.warn('[dashboard] Budget fetch failed:', err instanceof Error ? err.message : err)
+      }
       setLastRefreshed(new Date())
     } catch {
       // silently fail — data stays as-is
