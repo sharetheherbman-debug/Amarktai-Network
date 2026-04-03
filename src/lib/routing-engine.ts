@@ -108,6 +108,16 @@ export interface RoutingContext {
   maxCostTier?: string
   /** Optional ceiling on model latency tier. */
   maxLatencyTier?: string
+  /**
+   * Required modality for the output. When set, routing enforces that the
+   * selected model supports the matching capability flag.
+   *
+   * - `image`   → model must have `supports_image_generation`
+   * - `video`   → model must have `supports_video_generation` or `supports_video_planning`
+   * - `voice`   → model must have `supports_tts` or `supports_stt` or `supports_voice_interaction`
+   * - `text`    → model must have `supports_chat` (default, no special check)
+   */
+  requiredModality?: 'text' | 'image' | 'video' | 'voice'
 }
 
 // ── Constants ───────────────────────────────────────────────────────────
@@ -157,6 +167,32 @@ function getEligibleModels(profile: AppProfile): ModelEntry[] {
   return getUsableModels().filter(
     (m) => isProviderAllowed(profile, m.provider) && isModelAllowed(profile, m.model_id),
   )
+}
+
+/**
+ * Filter eligible models to only those that match the required modality.
+ *
+ * Enforces strict modality routing:
+ * - image_generation → models with supports_image_generation ONLY
+ * - voice → models with supports_tts / supports_stt / supports_voice_interaction ONLY
+ * - video → models with supports_video_generation / supports_video_planning ONLY
+ * - text → no additional filter (all chat-capable models qualify)
+ *
+ * If no modality is specified, returns all eligible models.
+ */
+export function filterByModality(models: ModelEntry[], modality?: 'text' | 'image' | 'video' | 'voice'): ModelEntry[] {
+  if (!modality || modality === 'text') return models
+
+  switch (modality) {
+    case 'image':
+      return models.filter((m) => m.supports_image_generation === true)
+    case 'video':
+      return models.filter((m) => m.supports_video_generation === true || m.supports_video_planning === true)
+    case 'voice':
+      return models.filter((m) => m.supports_tts === true || m.supports_stt === true || m.supports_voice_interaction === true)
+    default:
+      return models
+  }
 }
 
 /**
@@ -357,7 +393,7 @@ export function estimateLatency(model: ModelEntry): LatencyEstimate {
 export function routeRequest(context: RoutingContext): RoutingDecision {
   const warnings: string[] = []
   const profile = getAppProfile(context.appSlug)
-  const eligible = getEligibleModels(profile)
+  let eligible = getEligibleModels(profile)
 
   if (eligible.length === 0) {
     return {
@@ -370,6 +406,28 @@ export function routeRequest(context: RoutingContext): RoutingDecision {
       costEstimate: 'low',
       latencyEstimate: 'medium',
     }
+  }
+
+  // ── 0. Modality enforcement ─────────────────────────────────────────
+  // When a required modality is specified, filter eligible models to only
+  // those that match. If no models match the modality, FAIL immediately.
+  if (context.requiredModality && context.requiredModality !== 'text') {
+    const modalityFiltered = filterByModality(eligible, context.requiredModality)
+    if (modalityFiltered.length === 0) {
+      return {
+        mode: 'direct',
+        primaryModel: null,
+        secondaryModel: null,
+        fallbackModels: [],
+        reason: `No models support the required modality "${context.requiredModality}". ` +
+          `image_generation → image model ONLY, voice → audio model ONLY, video → video model ONLY. ` +
+          `Modality mismatch – routing failed.`,
+        warnings: [`Required modality "${context.requiredModality}" has no eligible models. Configure a provider that supports this modality.`],
+        costEstimate: 'low',
+        latencyEstimate: 'medium',
+      }
+    }
+    eligible = modalityFiltered
   }
 
   // ── 1. Premium escalation ──────────────────────────────────────────

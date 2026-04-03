@@ -93,6 +93,20 @@ export interface AppProfile {
   safe_mode?: boolean;
   /** When true, non-harmful adult content is allowed. Requires safe_mode=false and explicit opt-in. */
   adult_mode?: boolean;
+  /**
+   * When true, suggestive but non-explicit content is allowed (lingerie, bikini,
+   * flirting, swearing, topless nudity only). Blocks explicit sex and illegal content.
+   * Requires safe_mode=false.
+   */
+  suggestive_mode?: boolean;
+
+  // ── Cost ────────────────────────────────────────────────────────────────
+
+  /** Preferred cost tier for model routing (cheap, balanced, premium). */
+  cost_tier?: 'cheap' | 'balanced' | 'premium';
+
+  /** Ordered list of fallback providers when primary fails. */
+  fallback_chain?: string[];
 
   // ── Budget ──────────────────────────────────────────────────────────────
 

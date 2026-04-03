@@ -157,6 +157,18 @@ export interface ModelEntry {
 
   /** Specialist knowledge domains this model excels at. */
   specialist_domains: string[];
+
+  /**
+   * High-level model category for dashboard grouping.
+   *
+   * - `text`       – Chat, reasoning, coding, summarisation
+   * - `image`      – Image generation / editing
+   * - `video`      – Video generation / planning
+   * - `voice`      – TTS, STT, real-time voice
+   * - `code`       – Code-specialist models
+   * - `multimodal` – Vision + generation across modalities
+   */
+  category: 'text' | 'image' | 'video' | 'voice' | 'code' | 'multimodal';
 }
 
 // ── Registry data ───────────────────────────────────────────────────────────
@@ -199,6 +211,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 1,
     validator_eligible: true,
     specialist_domains: ['finance', 'crypto', 'marketing', 'general', 'analysis', 'video_planning'],
+    category: 'multimodal',
   },
   {
     provider: 'openai',
@@ -228,6 +241,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 2,
     validator_eligible: false,
     specialist_domains: ['general', 'chat', 'quick-tasks'],
+    category: 'multimodal',
   },
   {
     provider: 'openai',
@@ -257,6 +271,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 3,
     validator_eligible: true,
     specialist_domains: ['finance', 'analysis', 'complex-reasoning'],
+    category: 'multimodal',
   },
 
   // ── Grok / xAI (Layer 1 – Premium) ─────────────────────────────────────
@@ -289,6 +304,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 2,
     validator_eligible: true,
     specialist_domains: ['crypto', 'real-time-data', 'analysis', 'general'],
+    category: 'text',
   },
   {
     provider: 'grok',
@@ -318,6 +334,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 3,
     validator_eligible: true,
     specialist_domains: ['crypto', 'real-time-data', 'analysis'],
+    category: 'text',
   },
 
   // ── NVIDIA (Layer 2 – Backbone) ─────────────────────────────────────────
@@ -350,6 +367,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 4,
     validator_eligible: true,
     specialist_domains: ['reasoning', 'instruction-following', 'planning'],
+    category: 'text',
   },
 
   // ── Hugging Face (Layer 2 – Backbone) ───────────────────────────────────
@@ -382,6 +400,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 7,
     validator_eligible: false,
     specialist_domains: ['chat', 'general', 'lightweight'],
+    category: 'text',
   },
   {
     provider: 'huggingface',
@@ -411,6 +430,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 8,
     validator_eligible: false,
     specialist_domains: ['chat', 'code', 'instruction-following'],
+    category: 'text',
   },
 
   // ── DeepSeek (Layer 2 – Backbone) ───────────────────────────────────────
@@ -443,6 +463,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 3,
     validator_eligible: true,
     specialist_domains: ['coding', 'math', 'reasoning', 'general'],
+    category: 'text',
   },
   {
     provider: 'deepseek',
@@ -472,6 +493,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 4,
     validator_eligible: true,
     specialist_domains: ['math', 'reasoning', 'science', 'coding'],
+    category: 'text',
   },
 
   // ── Groq (Layer 2 – Backbone) ───────────────────────────────────────────
@@ -504,6 +526,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 2,
     validator_eligible: false,
     specialist_domains: ['general', 'chat', 'quick-tasks', 'real-time'],
+    category: 'text',
   },
   {
     provider: 'groq',
@@ -533,6 +556,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 5,
     validator_eligible: false,
     specialist_domains: ['chat', 'multilingual', 'code'],
+    category: 'text',
   },
 
   // ── OpenRouter (Layer 2 – Backbone / Aggregator) ────────────────────────
@@ -565,6 +589,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 6,
     validator_eligible: false,
     specialist_domains: ['general', 'fallback', 'aggregator'],
+    category: 'multimodal',
   },
 
   // ── Together AI (Layer 2 – Backbone) ────────────────────────────────────
@@ -597,6 +622,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 6,
     validator_eligible: false,
     specialist_domains: ['general', 'open-source', 'chat'],
+    category: 'text',
   },
 
   // ── OpenAI — reasoning / o-series ────────────────────────────────────────
@@ -629,6 +655,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 1,
     validator_eligible: true,
     specialist_domains: ['math', 'science', 'complex-reasoning', 'security', 'trading'],
+    category: 'text',
   },
   {
     provider: 'openai',
@@ -658,6 +685,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 2,
     validator_eligible: true,
     specialist_domains: ['math', 'coding', 'reasoning', 'security', 'trading'],
+    category: 'text',
   },
   {
     provider: 'openai',
@@ -687,6 +715,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 3,
     validator_eligible: false,
     specialist_domains: ['coding', 'math', 'reasoning'],
+    category: 'text',
   },
 
   // ── OpenAI — embeddings ───────────────────────────────────────────────────
@@ -719,6 +748,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 1,
     validator_eligible: false,
     specialist_domains: ['retrieval', 'semantic-search', 'rag'],
+    category: 'text',
   },
   {
     provider: 'openai',
@@ -748,6 +778,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 2,
     validator_eligible: false,
     specialist_domains: ['retrieval', 'semantic-search', 'rag'],
+    category: 'text',
   },
 
   // ── OpenAI — image generation ─────────────────────────────────────────────
@@ -780,6 +811,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 1,
     validator_eligible: false,
     specialist_domains: ['marketing', 'creative', 'design', 'travel'],
+    category: 'image',
   },
 
   // ── OpenAI — text-to-speech ───────────────────────────────────────────────
@@ -813,6 +845,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 1,
     validator_eligible: false,
     specialist_domains: ['voice', 'tts', 'friends', 'travel', 'marketing'],
+    category: 'voice',
   },
   {
     provider: 'openai',
@@ -843,6 +876,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 2,
     validator_eligible: false,
     specialist_domains: ['voice', 'tts', 'friends', 'travel', 'marketing', 'secure'],
+    category: 'voice',
   },
 
   // ── OpenAI — speech-to-text ─────────────────────────────────────────────
@@ -877,6 +911,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 1,
     validator_eligible: false,
     specialist_domains: ['voice', 'stt', 'transcription', 'multilingual'],
+    category: 'voice',
   },
 
   // ── Groq — speech-to-text (low cost) ────────────────────────────────────
@@ -911,6 +946,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 1,
     validator_eligible: false,
     specialist_domains: ['voice', 'stt', 'transcription', 'multilingual'],
+    category: 'voice',
   },
   {
     provider: 'groq',
@@ -942,6 +978,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 2,
     validator_eligible: false,
     specialist_domains: ['voice', 'stt', 'transcription', 'english'],
+    category: 'voice',
   },
   {
     provider: 'groq',
@@ -973,6 +1010,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 1,
     validator_eligible: false,
     specialist_domains: ['voice', 'stt', 'transcription', 'multilingual', 'fast_stt'],
+    category: 'voice',
   },
 
   // ── Groq — text-to-speech (low cost) ────────────────────────────────────
@@ -1006,6 +1044,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 1,
     validator_eligible: false,
     specialist_domains: ['voice', 'tts', 'fast_tts'],
+    category: 'voice',
   },
   {
     provider: 'groq',
@@ -1036,6 +1075,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 2,
     validator_eligible: false,
     specialist_domains: ['voice', 'tts', 'arabic', 'fast_tts'],
+    category: 'voice',
   },
 
   // ── Gemini (Google) ───────────────────────────────────────────────────────
@@ -1068,6 +1108,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 2,
     validator_eligible: true,
     specialist_domains: ['long-context', 'multimodal', 'planning', 'analysis', 'travel'],
+    category: 'multimodal',
   },
   {
     provider: 'gemini',
@@ -1097,6 +1138,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 3,
     validator_eligible: false,
     specialist_domains: ['chat', 'multimodal', 'quick-tasks', 'marketing'],
+    category: 'multimodal',
   },
   {
     provider: 'gemini',
@@ -1126,6 +1168,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 2,
     validator_eligible: false,
     specialist_domains: ['chat', 'multimodal', 'real-time', 'general', 'video_planning'],
+    category: 'multimodal',
   },
 
   // ── Groq — expanded ───────────────────────────────────────────────────────
@@ -1158,6 +1201,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 3,
     validator_eligible: false,
     specialist_domains: ['chat', 'quick-tasks', 'real-time', 'lightweight'],
+    category: 'text',
   },
   {
     provider: 'groq',
@@ -1187,6 +1231,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 6,
     validator_eligible: false,
     specialist_domains: ['chat', 'multilingual', 'general'],
+    category: 'text',
   },
 
   // ── DeepSeek — coding specialist ──────────────────────────────────────────
@@ -1219,6 +1264,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 2,
     validator_eligible: false,
     specialist_domains: ['coding', 'debugging', 'code-review'],
+    category: 'code',
   },
 
   // ── OpenRouter — expanded curated models ──────────────────────────────────
@@ -1251,6 +1297,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 2,
     validator_eligible: true,
     specialist_domains: ['reasoning', 'coding', 'marketing', 'analysis', 'security'],
+    category: 'multimodal',
   },
   {
     provider: 'openrouter',
@@ -1280,6 +1327,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 4,
     validator_eligible: false,
     specialist_domains: ['chat', 'quick-tasks', 'multilingual', 'general'],
+    category: 'multimodal',
   },
   {
     provider: 'openrouter',
@@ -1309,6 +1357,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 5,
     validator_eligible: true,
     specialist_domains: ['reasoning', 'general', 'planning'],
+    category: 'text',
   },
   {
     provider: 'openrouter',
@@ -1338,6 +1387,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 5,
     validator_eligible: true,
     specialist_domains: ['coding', 'multilingual', 'reasoning', 'general'],
+    category: 'text',
   },
 
   // ── Together AI — expanded curated models ─────────────────────────────────
@@ -1370,6 +1420,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 7,
     validator_eligible: false,
     specialist_domains: ['chat', 'lightweight', 'multilingual'],
+    category: 'text',
   },
   {
     provider: 'together',
@@ -1399,6 +1450,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 5,
     validator_eligible: false,
     specialist_domains: ['reasoning', 'coding', 'multilingual', 'general'],
+    category: 'text',
   },
   {
     provider: 'together',
@@ -1428,6 +1480,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 8,
     validator_eligible: false,
     specialist_domains: ['chat', 'lightweight', 'multilingual', 'general'],
+    category: 'text',
   },
 
   // ── NVIDIA NIM — expanded ─────────────────────────────────────────────────
@@ -1460,6 +1513,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 5,
     validator_eligible: false,
     specialist_domains: ['chat', 'quick-tasks', 'lightweight'],
+    category: 'text',
   },
 
   // ── Hugging Face — expanded ────────────────────────────────────────────────
@@ -1492,6 +1546,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 9,
     validator_eligible: false,
     specialist_domains: ['chat', 'lightweight', 'coding', 'edge'],
+    category: 'text',
   },
   {
     provider: 'huggingface',
@@ -1521,6 +1576,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 3,
     validator_eligible: false,
     specialist_domains: ['retrieval', 'semantic-search', 'rag'],
+    category: 'text',
   },
   {
     provider: 'huggingface',
@@ -1550,6 +1606,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 1,
     validator_eligible: false,
     specialist_domains: ['retrieval', 'reranking', 'rag'],
+    category: 'text',
   },
 
   // ── OpenAI — latest generation ────────────────────────────────────────────
@@ -1582,6 +1639,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 1,
     validator_eligible: true,
     specialist_domains: ['finance', 'crypto', 'marketing', 'general', 'analysis', 'coding'],
+    category: 'multimodal',
   },
   {
     provider: 'openai',
@@ -1611,6 +1669,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 2,
     validator_eligible: true,
     specialist_domains: ['math', 'coding', 'reasoning', 'science', 'security', 'video_planning'],
+    category: 'multimodal',
   },
 
   // ── xAI / Grok — expanded ────────────────────────────────────────────────
@@ -1643,6 +1702,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 1,
     validator_eligible: true,
     specialist_domains: ['crypto', 'real-time-data', 'analysis', 'reasoning', 'general'],
+    category: 'multimodal',
   },
   {
     provider: 'grok',
@@ -1672,6 +1732,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 4,
     validator_eligible: false,
     specialist_domains: ['chat', 'quick-tasks', 'crypto', 'real-time-data'],
+    category: 'text',
   },
 
   // ── Gemini — latest generation ────────────────────────────────────────────
@@ -1704,6 +1765,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 1,
     validator_eligible: true,
     specialist_domains: ['long-context', 'multimodal', 'reasoning', 'planning', 'coding'],
+    category: 'multimodal',
   },
   {
     provider: 'gemini',
@@ -1733,6 +1795,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 2,
     validator_eligible: false,
     specialist_domains: ['chat', 'multimodal', 'quick-tasks', 'real-time', 'video_planning'],
+    category: 'multimodal',
   },
   {
     provider: 'gemini',
@@ -1762,6 +1825,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 3,
     validator_eligible: false,
     specialist_domains: ['retrieval', 'semantic-search', 'rag'],
+    category: 'text',
   },
 
   // ── Groq — safety & expanded ──────────────────────────────────────────────
@@ -1794,6 +1858,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 1,
     validator_eligible: true,
     specialist_domains: ['safety', 'guardrails', 'content-moderation'],
+    category: 'text',
   },
   {
     provider: 'groq',
@@ -1823,6 +1888,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 4,
     validator_eligible: true,
     specialist_domains: ['reasoning', 'math', 'coding', 'science'],
+    category: 'text',
   },
 
   // ── NVIDIA NIM — expanded ─────────────────────────────────────────────────
@@ -1855,6 +1921,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 3,
     validator_eligible: true,
     specialist_domains: ['reasoning', 'enterprise', 'instruction-following'],
+    category: 'text',
   },
   {
     provider: 'nvidia',
@@ -1884,6 +1951,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 2,
     validator_eligible: false,
     specialist_domains: ['retrieval', 'reranking', 'rag'],
+    category: 'text',
   },
   {
     provider: 'nvidia',
@@ -1913,6 +1981,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 2,
     validator_eligible: false,
     specialist_domains: ['retrieval', 'semantic-search', 'rag', 'enterprise'],
+    category: 'text',
   },
 
   // ── HuggingFace — expanded ────────────────────────────────────────────────
@@ -1945,6 +2014,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 5,
     validator_eligible: true,
     specialist_domains: ['reasoning', 'general', 'open-source', 'multilingual'],
+    category: 'text',
   },
 
   // ── DeepSeek — expanded ───────────────────────────────────────────────────
@@ -1977,6 +2047,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 2,
     validator_eligible: true,
     specialist_domains: ['coding', 'math', 'reasoning', 'general', 'multilingual'],
+    category: 'text',
   },
 
   // ── OpenRouter — expanded ─────────────────────────────────────────────────
@@ -2009,6 +2080,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 1,
     validator_eligible: true,
     specialist_domains: ['reasoning', 'coding', 'analysis', 'security', 'general'],
+    category: 'multimodal',
   },
   {
     provider: 'openrouter',
@@ -2038,6 +2110,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 7,
     validator_eligible: false,
     specialist_domains: ['chat', 'multilingual', 'general', 'open-source'],
+    category: 'text',
   },
 
   // ── Together AI — expanded ────────────────────────────────────────────────
@@ -2070,6 +2143,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 4,
     validator_eligible: true,
     specialist_domains: ['reasoning', 'general', 'open-source', 'multilingual'],
+    category: 'text',
   },
   {
     provider: 'together',
@@ -2099,6 +2173,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 5,
     validator_eligible: false,
     specialist_domains: ['multilingual', 'coding', 'reasoning', 'general', 'cjk'],
+    category: 'text',
   },
   {
     provider: 'together',
@@ -2128,6 +2203,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 7,
     validator_eligible: false,
     specialist_domains: ['chat', 'code', 'multilingual', 'lightweight'],
+    category: 'text',
   },
 
   // ── Image Generation Specialists ─────────────────────────────────────────
@@ -2160,6 +2236,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 1,
     validator_eligible: false,
     specialist_domains: ['image_generation', 'art', 'creative'],
+    category: 'image',
   },
   {
     provider: 'together',
@@ -2189,6 +2266,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 2,
     validator_eligible: false,
     specialist_domains: ['image_generation', 'art', 'fast_generation'],
+    category: 'image',
   },
 
   // ── Gemini Voice (Google Cloud Speech / TTS via Gemini) ──────────────────
@@ -2223,6 +2301,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 3,
     validator_eligible: false,
     specialist_domains: ['voice', 'stt', 'transcription', 'multilingual'],
+    category: 'voice',
   },
   {
     provider: 'gemini',
@@ -2253,6 +2332,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 3,
     validator_eligible: false,
     specialist_domains: ['voice', 'tts', 'multilingual'],
+    category: 'voice',
   },
 
   // ── HuggingFace Voice Fallback Models ───────────────────────────────────
@@ -2287,6 +2367,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 8,
     validator_eligible: false,
     specialist_domains: ['voice', 'stt', 'transcription', 'multilingual', 'fallback'],
+    category: 'voice',
   },
   {
     provider: 'huggingface',
@@ -2317,6 +2398,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 8,
     validator_eligible: false,
     specialist_domains: ['voice', 'tts', 'english', 'fallback'],
+    category: 'voice',
   },
   {
     provider: 'huggingface',
@@ -2348,6 +2430,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 9,
     validator_eligible: false,
     specialist_domains: ['voice', 'stt', 'transcription', 'multilingual', 'fallback', 'lightweight'],
+    category: 'voice',
   },
   {
     provider: 'huggingface',
@@ -2378,6 +2461,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 9,
     validator_eligible: false,
     specialist_domains: ['voice', 'tts', 'french', 'fallback'],
+    category: 'voice',
   },
 
   // ── OpenAI Realtime (Layer 1 – Premium) ─────────────────────────────────
@@ -2413,6 +2497,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 1,
     validator_eligible: false,
     specialist_domains: ['voice', 'realtime', 'stt', 'tts', 'streaming'],
+    category: 'voice',
   },
 
   // ── Replicate (Layer 2 – Backbone / Video Generation) ───────────────────
@@ -2446,6 +2531,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 1,
     validator_eligible: false,
     specialist_domains: ['video', 'video_generation', 'text-to-video'],
+    category: 'video',
   },
   {
     provider: 'replicate',
@@ -2476,6 +2562,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 2,
     validator_eligible: false,
     specialist_domains: ['video', 'video_generation', 'text-to-video'],
+    category: 'video',
   },
 
   // ── HuggingFace Video Generation ─────────────────────────────────────────
@@ -2509,6 +2596,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 3,
     validator_eligible: false,
     specialist_domains: ['video', 'video_generation', 'text-to-video', 'suggestive', 'fashion', 'lifestyle'],
+    category: 'video',
   },
   {
     provider: 'huggingface',
@@ -2539,6 +2627,7 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     fallback_priority: 4,
     validator_eligible: false,
     specialist_domains: ['video', 'video_generation', 'text-to-video', 'fallback'],
+    category: 'video',
   },
 ] as const satisfies readonly ModelEntry[];
 
@@ -2718,6 +2807,24 @@ export function getModelsForDomain(domain: string): ModelEntry[] {
   return MODEL_REGISTRY.filter(
     (m) => m.enabled && m.specialist_domains.includes(domain),
   );
+}
+
+/** Model category type for filtering. */
+export type ModelCategory = 'text' | 'image' | 'video' | 'voice' | 'code' | 'multimodal';
+
+/** Returns all models in a given category. */
+export function getModelsByCategory(category: ModelCategory): ModelEntry[] {
+  return MODEL_REGISTRY.filter((m) => m.category === category);
+}
+
+/** Returns a summary count of models per category. */
+export function getCategorySummary(): Record<ModelCategory, number> {
+  const cats: ModelCategory[] = ['text', 'image', 'video', 'voice', 'code', 'multimodal'];
+  const summary = {} as Record<ModelCategory, number>;
+  for (const c of cats) {
+    summary[c] = MODEL_REGISTRY.filter((m) => m.category === c).length;
+  }
+  return summary;
 }
 
 // ── Cost-tier ordering (ascending) ──────────────────────────────────────

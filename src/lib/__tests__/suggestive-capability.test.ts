@@ -225,15 +225,14 @@ describe('validateSuggestivePrompt — Allowed Prompts', () => {
  * ================================================================ */
 
 describe('validateSuggestivePrompt — Blocked Prompts', () => {
-  it('blocks nude/nudity prompts', () => {
+  it('allows nude/nudity prompts (topless nudity permitted in suggestive mode)', () => {
     const result = validateSuggestivePrompt('A nude woman on a beach')
-    expect(result.allowed).toBe(false)
-    expect(result.reason).toBeDefined()
+    expect(result.allowed).toBe(true)
   })
 
-  it('blocks naked prompts', () => {
+  it('allows naked prompts (topless nudity permitted in suggestive mode)', () => {
     const result = validateSuggestivePrompt('Naked man in a pool')
-    expect(result.allowed).toBe(false)
+    expect(result.allowed).toBe(true)
   })
 
   it('blocks explicit sexual act descriptions', () => {
@@ -262,8 +261,13 @@ describe('validateSuggestivePrompt — Blocked Prompts', () => {
     expect(result.allowed).toBe(false)
   })
 
-  it('blocks bare nipple/explicit body part references', () => {
+  it('allows bare breasts (topless nudity permitted in suggestive mode)', () => {
     const result = validateSuggestivePrompt('Bare breasts visible in a photo')
+    expect(result.allowed).toBe(true)
+  })
+
+  it('blocks explicit genitalia references', () => {
+    const result = validateSuggestivePrompt('Exposed genitalia in a photo')
     expect(result.allowed).toBe(false)
   })
 })
