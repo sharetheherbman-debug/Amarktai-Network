@@ -265,8 +265,8 @@ export async function dispatchEvent(
       // Queue for retry
       try {
         await enqueueJob({
-          type: 'webhook_retry' as 'batch_inference',
-          payload: {
+          type: 'batch_inference',
+          data: {
             webhookId: webhooks[i].id,
             event,
             attempt: 2,

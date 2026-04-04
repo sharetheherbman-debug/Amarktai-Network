@@ -253,13 +253,9 @@ describe('Rate Limiter', () => {
 
 import {
   registerWebhook,
-  unregisterWebhook,
   getWebhooksForApp,
-  getWebhook,
-  setWebhookActive,
   generateSignature,
   verifySignature,
-  getDeliveryLog,
   getDeliveryStats,
   WEBHOOK_EVENT_TYPES,
   MAX_RETRY_ATTEMPTS,
@@ -358,16 +354,11 @@ describe('Semantic Cache', () => {
 import {
   createTemplate,
   updateTemplate,
-  getTemplate,
-  listTemplates,
   renderTemplate,
-  deleteTemplate,
   getVersionHistory,
   createABTest,
   startABTest,
   selectVariant,
-  recordABResult,
-  getABResults,
   TEMPLATE_CATEGORIES,
 } from '../prompt-studio'
 
@@ -447,8 +438,6 @@ import {
   GUARDRAIL_CATEGORIES,
   detectPII,
   redactPII,
-  detectBias,
-  detectToxicity,
 } from '../guardrails'
 
 describe('Guardrails Engine', () => {
@@ -582,11 +571,9 @@ describe('Smart Router', () => {
 import {
   createWorkflow,
   getWorkflow,
-  listWorkflows,
   executeWorkflow,
   activateWorkflow,
   STEP_TYPES,
-  WORKFLOW_STATUSES,
 } from '../workflow-engine'
 
 describe('Workflow Engine', () => {
@@ -649,10 +636,8 @@ describe('Workflow Engine', () => {
 import {
   createPipeline,
   createPipelineFromTemplate,
-  getPipeline,
   executePipeline,
   validatePipeline,
-  PIPELINE_TEMPLATES,
   TEMPLATE_KEYS,
   MODALITIES,
 } from '../multimodal-pipeline'
@@ -785,7 +770,6 @@ import {
   createBatchJob,
   submitBatchJob,
   getBatchJob,
-  getBatchResult,
   cancelBatchJob,
   listBatchJobs,
   MAX_ITEMS_PER_BATCH,
@@ -856,7 +840,6 @@ import {
   setSpanError,
   getTrace,
   getDashboardMetrics,
-  listRecentTraces,
   incrementCounter,
   resetObservability,
 } from '../observability'
@@ -976,8 +959,6 @@ import {
   activatePlugin,
   disablePlugin,
   getPlugin,
-  listPlugins,
-  configurePlugin,
   executeHooks,
   uninstallPlugin,
   PLUGIN_TYPES,

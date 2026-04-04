@@ -152,7 +152,7 @@ export async function submitBatchJob(jobId: string): Promise<boolean> {
   try {
     await enqueueJob({
       type: 'batch_inference',
-      payload: { batchJobId: jobId },
+      data: { batchJobId: jobId },
     })
     return true
   } catch {
