@@ -74,7 +74,7 @@ const userMemoryIndex = new Map<string, Set<string>>() // userId:appSlug → Set
 const MAX_MEMORIES_PER_USER = 1000
 const DEFAULT_IMPORTANCE = 0.5
 const SESSION_CACHE_TTL = 3600 // 1 hour
-const MEMORY_COLLECTION = 'amarktai_federated_memory'
+const _MEMORY_COLLECTION = 'amarktai_federated_memory'
 
 // ── Memory CRUD ──────────────────────────────────────────────────────────────
 

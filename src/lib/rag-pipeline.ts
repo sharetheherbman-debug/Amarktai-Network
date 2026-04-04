@@ -193,7 +193,7 @@ export async function generateEmbeddings(texts: string[]): Promise<(number[] | n
  * Ingest a document: chunk → embed → store in vector DB.
  */
 export async function ingestDocument(doc: Document): Promise<IngestResult> {
-  const start = Date.now()
+  const _start = Date.now()
 
   try {
     // Ensure vector collection exists

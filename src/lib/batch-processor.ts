@@ -170,7 +170,7 @@ async function processJobInline(jobId: string): Promise<void> {
   const job = batchJobs.get(jobId)
   if (!job) return
 
-  const startTime = Date.now()
+  const _startTime = Date.now()
   let totalLatency = 0
   let processedCount = 0
 

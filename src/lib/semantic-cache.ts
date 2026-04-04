@@ -10,7 +10,7 @@
  */
 
 import { searchVectors, upsertVectors, ensureCollection } from './vector-store'
-import { cacheGet, cacheSet, cacheDel } from './redis'
+import { cacheGet, cacheSet } from './redis'
 import { generateEmbedding } from './rag-pipeline'
 import { randomUUID } from 'crypto'
 
@@ -49,7 +49,7 @@ export interface CacheStats {
 
 const SIMILARITY_THRESHOLD = 0.92 // Must be >= 92% similar to return cached
 const DEFAULT_TTL = 3600 // 1 hour
-const MAX_CACHE_SIZE = 10_000
+const _MAX_CACHE_SIZE = 10_000
 const CACHE_COLLECTION = 'amarktai_semantic_cache'
 
 // In-memory stats (production would use Redis/DB)
@@ -184,7 +184,7 @@ export async function storeInCache(
 /**
  * Invalidate cache entries for an app.
  */
-export async function invalidateCache(appSlug: string): Promise<number> {
+export async function invalidateCache(_appSlug: string): Promise<number> {
   // For now, we can only clear Redis exact matches
   // Vector store cleanup would require a filtered delete
   // This is a best-effort invalidation
