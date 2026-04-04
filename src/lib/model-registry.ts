@@ -4541,39 +4541,6 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     category: 'video',
   },
 
-  // ── Gemini TTS ────────────────────────────────────────────────────────────
-
-  {
-    provider: 'gemini',
-    provider_tier: 'premium',
-    model_id: 'gemini-2.5-flash-preview-tts',
-    model_name: 'Gemini TTS',
-    family: 'Gemini',
-    primary_role: 'tts',
-    secondary_roles: [],
-    supports_chat: false,
-    supports_reasoning: false,
-    supports_code: false,
-    supports_tool_use: false,
-    supports_multilingual: true,
-    supports_structured_output: false,
-    supports_embeddings: false,
-    supports_reranking: false,
-    supports_vision: false,
-    supports_image_generation: false,
-    supports_video_planning: false,
-    supports_tts: true,
-    supports_agent_planning: false,
-    context_window: 1024,
-    latency_tier: 'medium',
-    cost_tier: 'low',
-    enabled: true,
-    health_status: 'unconfigured',
-    fallback_priority: 4,
-    validator_eligible: false,
-    specialist_domains: ['text_to_speech', 'multilingual'],
-    category: 'voice',
-  },
 ] as const satisfies readonly ModelEntry[];
 
 // ── Boolean capability keys (used for type-safe filtering) ──────────────
