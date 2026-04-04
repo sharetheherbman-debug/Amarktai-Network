@@ -330,7 +330,7 @@ export async function POST(request: NextRequest) {
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 /** Resolve which provider to use (auto-select first available or explicit). */
-function resolveProvider(requested?: string): string {
+function resolveProvider(requested?: string): string | null {
   if (requested && (STREAMING_PROVIDERS[requested] || requested === 'anthropic' || requested === 'gemini' || requested === 'cohere')) {
     return requested
   }
@@ -348,7 +348,7 @@ function resolveProvider(requested?: string): string {
     if (process.env[envMap[provider]]) return provider
   }
 
-  return '' // No provider available
+  return null // No provider available
 }
 
 /** Process an SSE stream, calling handler for each data line. */
