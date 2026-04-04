@@ -182,6 +182,18 @@ export async function runProviderHealthCheck(
         return { status: 'degraded', message: `HTTP ${res.status} from Cohere API` }
       }
 
+      case 'qwen': {
+        const endpoint = `${baseUrl || 'https://dashscope-intl.aliyuncs.com/compatible-mode'}/v1/models`
+        const res = await fetch(endpoint, {
+          headers: { Authorization: `Bearer ${apiKey}` },
+          signal: AbortSignal.timeout(timeout),
+        })
+        if (res.ok) return { status: 'healthy', message: 'Connected · Qwen/DashScope API responding' }
+        if (res.status === 401) return { status: 'error', message: 'Invalid API key (401 Unauthorized)' }
+        if (res.status === 429) return { status: 'degraded', message: 'Rate limited (429)' }
+        return { status: 'degraded', message: `HTTP ${res.status} from Qwen/DashScope API` }
+      }
+
       case 'nvidia':
         // NVIDIA NIM — key can be validated but models list requires explicit access
         return { status: 'configured', message: 'Key configured · use Gateway Test to validate live inference' }

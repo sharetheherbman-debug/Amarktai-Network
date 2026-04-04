@@ -171,7 +171,8 @@ export async function callProvider(
       case 'deepseek':
       case 'openrouter':
       case 'together':
-      case 'grok': {
+      case 'grok':
+      case 'qwen': {
         const baseMap: Record<string, string> = {
           openai:     'https://api.openai.com',
           groq:       'https://api.groq.com/openai',
@@ -179,6 +180,7 @@ export async function callProvider(
           openrouter: 'https://openrouter.ai/api',
           together:   'https://api.together.xyz',
           grok:       'https://api.x.ai',
+          qwen:       'https://dashscope-intl.aliyuncs.com/compatible-mode',
         }
         const base = vault.baseUrl || baseMap[providerKey] || 'https://api.openai.com'
         const headers: Record<string, string> = {

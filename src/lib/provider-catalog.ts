@@ -132,8 +132,8 @@ export const CANONICAL_PROVIDERS: readonly CanonicalProviderEntry[] = [
     key: 'qwen',
     displayName: 'Qwen',
     defaultBaseUrl: 'https://dashscope.aliyuncs.com',
-    healthCheckSupported: false,
-    supportedCapabilityFamilies: ['chat', 'reasoning', 'code'],
+    healthCheckSupported: true,
+    supportedCapabilityFamilies: ['chat', 'reasoning', 'code', 'vision', 'image_generation', 'video_generation', 'embeddings', 'voice_interaction'],
     sortOrder: 9,
   },
   {
