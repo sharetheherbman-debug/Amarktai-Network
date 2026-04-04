@@ -638,35 +638,39 @@ export function getRetrievalNamespace(profile: AppProfile): string {
 export async function getAppProfileFromDb(appSlug: string): Promise<AppProfile | null> {
   try {
     const { prisma } = await import('./prisma');
-    const dbProfile = await (prisma as any).appAiProfile?.findUnique({
+    // AppAiProfile may not be in the generated client yet — use dynamic access
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const db = prisma as unknown as Record<string, any>;
+    const appAiProfile = db.appAiProfile as { findUnique?: (args: unknown) => Promise<Record<string, unknown> | null> } | undefined;
+    const dbProfile = await appAiProfile?.findUnique?.({
       where: { appSlug },
     });
     if (!dbProfile) return null;
 
     return {
-      app_id: dbProfile.appSlug,
-      app_name: dbProfile.appName,
-      app_type: dbProfile.appType,
-      domain: dbProfile.domain,
-      default_routing_mode: dbProfile.defaultRoutingMode as any,
-      allowed_providers: JSON.parse(dbProfile.allowedProviders || '[]'),
-      allowed_models: JSON.parse(dbProfile.allowedModels || '[]'),
-      preferred_models: JSON.parse(dbProfile.preferredModels || '[]'),
-      escalation_rules: JSON.parse(dbProfile.escalationRules || '[]'),
-      validator_rules: JSON.parse(dbProfile.validatorRules || '[]'),
-      agent_permissions: JSON.parse(dbProfile.agentPermissions || '[]'),
-      multimodal_permissions: JSON.parse(dbProfile.multimodalPermissions || '[]'),
-      memory_namespace: dbProfile.memoryNamespace || appSlug,
-      retrieval_namespace: dbProfile.retrievalNamespace || appSlug,
-      budget_sensitivity: dbProfile.budgetSensitivity as any,
-      latency_sensitivity: dbProfile.latencySensitivity as any,
-      logging_privacy_rules: JSON.parse(dbProfile.loggingPrivacyRules || '[]'),
-      safe_mode: dbProfile.safeMode,
-      suggestive_mode: dbProfile.suggestiveMode,
-      cost_tier: dbProfile.costMode as any,
-      fallback_chain: JSON.parse(dbProfile.fallbackChain || '[]'),
-      monthly_budget_usd: dbProfile.monthlyBudgetCap ?? undefined,
-      enabled_capabilities: JSON.parse(dbProfile.enabledCapabilities || '[]'),
+      app_id: dbProfile.appSlug as string,
+      app_name: dbProfile.appName as string,
+      app_type: dbProfile.appType as string,
+      domain: dbProfile.domain as string,
+      default_routing_mode: dbProfile.defaultRoutingMode as AppProfile['default_routing_mode'],
+      allowed_providers: JSON.parse((dbProfile.allowedProviders as string) || '[]'),
+      allowed_models: JSON.parse((dbProfile.allowedModels as string) || '[]'),
+      preferred_models: JSON.parse((dbProfile.preferredModels as string) || '[]'),
+      escalation_rules: JSON.parse((dbProfile.escalationRules as string) || '[]'),
+      validator_rules: JSON.parse((dbProfile.validatorRules as string) || '[]'),
+      agent_permissions: JSON.parse((dbProfile.agentPermissions as string) || '[]'),
+      multimodal_permissions: JSON.parse((dbProfile.multimodalPermissions as string) || '[]'),
+      memory_namespace: (dbProfile.memoryNamespace as string) || appSlug,
+      retrieval_namespace: (dbProfile.retrievalNamespace as string) || appSlug,
+      budget_sensitivity: dbProfile.budgetSensitivity as AppProfile['budget_sensitivity'],
+      latency_sensitivity: dbProfile.latencySensitivity as AppProfile['latency_sensitivity'],
+      logging_privacy_rules: JSON.parse((dbProfile.loggingPrivacyRules as string) || '[]'),
+      safe_mode: dbProfile.safeMode as boolean,
+      suggestive_mode: dbProfile.suggestiveMode as boolean,
+      cost_tier: dbProfile.costMode as AppProfile['cost_tier'],
+      fallback_chain: JSON.parse((dbProfile.fallbackChain as string) || '[]'),
+      monthly_budget_usd: (dbProfile.monthlyBudgetCap as number | null) ?? undefined,
+      enabled_capabilities: JSON.parse((dbProfile.enabledCapabilities as string) || '[]'),
     };
   } catch {
     return null;

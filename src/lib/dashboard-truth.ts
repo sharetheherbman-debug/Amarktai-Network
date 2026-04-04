@@ -116,7 +116,7 @@ function collectCapabilities(providerKey: string): string[] {
  */
 export async function getProviderTruth(): Promise<ProviderTruth[]> {
   // Attempt to load DB records for all providers
-  let dbMap = new Map<
+  const dbMap = new Map<
     string,
     {
       enabled: boolean;
