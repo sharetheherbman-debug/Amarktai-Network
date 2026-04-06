@@ -11,11 +11,15 @@
  *  - hate speech / slurs
  *  - graphic violence / gore
  *  - self-harm / suicide instructions
+ *  - terrorism / extremist incitement
  *
  * Safety modes:
  *  - SAFE MODE  — all adult/explicit content blocked (default)
  *  - ADULT MODE — relaxes non-harmful adult content blocks (opt-in, gated)
+ *  - SUGGESTIVE MODE — allows tasteful suggestive content (lingerie, topless, etc.)
  */
+
+import { prisma } from '@/lib/prisma'
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -67,18 +71,18 @@ const DEFAULT_SAFETY_CONFIG: SafetyConfig = {
   suggestiveMode: false,
 };
 
-/** Runtime per-app safety overrides. */
+/** Runtime per-app safety overrides (write-through cache). */
 const appSafetyConfigs = new Map<string, SafetyConfig>();
 
 /**
- * Set the safety configuration for an app.
+ * Set the safety configuration for an app and persist it to the database.
  * Adult mode can only be enabled when safe mode is explicitly disabled.
  */
 export function setAppSafetyConfig(appSlug: string, config: Partial<SafetyConfig>): SafetyConfig {
   const current = appSafetyConfigs.get(appSlug) ?? { ...DEFAULT_SAFETY_CONFIG };
   const updated: SafetyConfig = {
-    safeMode: config.safeMode ?? current.safeMode,
-    adultMode: config.adultMode ?? current.adultMode,
+    safeMode:       config.safeMode       ?? current.safeMode,
+    adultMode:      config.adultMode      ?? current.adultMode,
     suggestiveMode: config.suggestiveMode ?? current.suggestiveMode,
   };
   // Adult mode and suggestive mode both require safe mode to be off
@@ -88,49 +92,135 @@ export function setAppSafetyConfig(appSlug: string, config: Partial<SafetyConfig
   if (updated.suggestiveMode && updated.safeMode) {
     updated.suggestiveMode = false;
   }
+  // Write to in-memory cache
   appSafetyConfigs.set(appSlug, updated);
+
+  // Persist to DB asynchronously — fire-and-forget; in-memory is authoritative for this request
+  prisma.appAiProfile
+    .upsert({
+      where: { appSlug },
+      update: {
+        safeMode:       updated.safeMode,
+        adultMode:      updated.adultMode,
+        suggestiveMode: updated.suggestiveMode,
+      },
+      create: {
+        appSlug,
+        appName: appSlug,
+        safeMode:       updated.safeMode,
+        adultMode:      updated.adultMode,
+        suggestiveMode: updated.suggestiveMode,
+      },
+    })
+    .catch((err: unknown) => {
+      console.error('[content-filter] Failed to persist safety config for', appSlug, err)
+    })
+
   return updated;
 }
 
 /**
- * Get the safety configuration for an app.
+ * Get the safety configuration for an app from the in-memory cache.
+ * Use `loadAppSafetyConfigFromDB` to warm the cache from the database.
  */
 export function getAppSafetyConfig(appSlug: string): SafetyConfig {
   return appSafetyConfigs.get(appSlug) ?? { ...DEFAULT_SAFETY_CONFIG };
 }
 
-// ── Keyword dictionaries (minimal, non-exhaustive) ───────────────────
+/**
+ * Load the safety configuration for an app from the database and warm
+ * the in-memory cache. Returns the loaded config (or default if not found).
+ *
+ * Call this from any GET endpoint that needs to return the persisted state.
+ */
+export async function loadAppSafetyConfigFromDB(appSlug: string): Promise<SafetyConfig> {
+  try {
+    // Use dynamic access because AppAiProfile was recently extended with adultMode
+    const db = prisma as unknown as {
+      appAiProfile?: {
+        findUnique: (args: unknown) => Promise<{
+          safeMode: boolean;
+          adultMode: boolean;
+          suggestiveMode: boolean;
+        } | null>;
+      };
+    };
+    const row = await db.appAiProfile?.findUnique({
+      where: { appSlug },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    if (row) {
+      const cfg: SafetyConfig = {
+        safeMode:       row.safeMode,
+        adultMode:      Boolean(row.adultMode),
+        suggestiveMode: row.suggestiveMode,
+      };
+      appSafetyConfigs.set(appSlug, cfg);
+      return cfg;
+    }
+  } catch (err) {
+    console.error('[content-filter] Failed to load safety config from DB for', appSlug, err)
+  }
+  return appSafetyConfigs.get(appSlug) ?? { ...DEFAULT_SAFETY_CONFIG };
+}
+
+// ── Keyword dictionaries ─────────────────────────────────────────────
 
 const CATEGORY_PATTERNS: Record<FlagCategory, RegExp[]> = {
   csam: [
     /\bchild\s+(sexual|porn|abuse|exploit)/i,
-    /\b(minor|underage)\s+(sex|porn|exploit|nude)/i,
+    /\b(minor|underage)\s+(sex|porn|exploit|nude|naked)/i,
     /\bpedophil/i,
+    /\bchild\s+(erotica|abuse\s+material)/i,
+    /\b(preteen|prepubescent)\s+(sex|porn|nude)/i,
+    /\bkiddie\s+porn/i,
+    /\blolicon\b/i,
+    /\bshota(con)?\b/i,
   ],
   non_consensual: [
     /\bnon[- ]?consensual\s+(sex|porn|explicit)/i,
-    /\brape\s+(porn|video|fantasy)/i,
+    /\brape\s+(porn|video|fantasy|scene)/i,
     /\brevenge\s+porn/i,
+    /\bsex(ual)?\s+(assault|coercion)\s+(how|instruct|guide)/i,
+    /\bdrugging?\s+(for\s+sex|someone\s+for)/i,
+    /\bsleep\s*raping?\b/i,
   ],
   hate_speech: [
-    /\b(kill|exterminate|genocide)\s+(all\s+)?(jews|muslims|blacks|whites|gays|trans)/i,
+    /\b(kill|exterminate|genocide)\s+(all\s+)?(jews|muslims|blacks|whites|gays|trans|christians|immigrants)/i,
     /\bethnic\s+cleansing/i,
     /\b(racial|ethnic)\s+supremacy/i,
+    /\bhitler\s+(was\s+right|did\s+nothing\s+wrong)/i,
+    /\b(jewish|muslim|black|gay)\s+(conspiracy|problem|infestation|plague)/i,
+    /\b(gas|hang|lynch)\s+the\s+(jews|blacks|gays|muslims)/i,
+    /\bwhite\s+genocide\b/i,
+    /\b(n|k|f)[aeiou]gg[aeiou]r/i,
   ],
   violence: [
-    /\bhow\s+to\s+(make|build)\s+(a\s+)?(bomb|weapon|explosive)/i,
-    /\bmanufacture\s+(poison|toxin|bioweapon)/i,
+    /\bhow\s+to\s+(make|build|create|construct)\s+(a\s+)?(bomb|weapon|explosive|ied|grenade)/i,
+    /\bmanufacture\s+(poison|toxin|bioweapon|nerve\s+agent|sarin|vx\s+nerve)/i,
+    /\bsynthesize\s+(ricin|sarin|vx|anthrax)/i,
+    /\b(chlorine|mustard)\s+gas\s+(synthesis|production)/i,
+    /\b3d\s+print\s+(a\s+)?gun\b/i,
+    /\bconvert\s+(a\s+)?(gun|rifle|pistol)\s+to\s+(full\s+)?auto/i,
   ],
   self_harm: [
     /\bhow\s+to\s+(commit\s+)?suicide/i,
     /\bself[- ]?harm\s+method/i,
-    /\bkill\s+yourself/i,
+    /\bkill\s+yourself\b/i,
+    /\bsuicide\s+(method|plan|note|letter|how\s+to)/i,
+    /\bmost\s+painless\s+way\s+to\s+die/i,
+    /\blethal\s+dose\s+of\s+(pills|medication|drug)/i,
+    /\bhow\s+to\s+(cut|slash)\s+(yourself|wrists)/i,
+    /\bself-harm\s+(guide|tutorial|instruction)/i,
   ],
   terrorism: [
-    /\bjoin\s+(isis|isil|al[- ]?qaeda|boko\s+haram)/i,
+    /\bjoin\s+(isis|isil|al[- ]?qaeda|boko\s+haram|hamas|hezbollah)\b/i,
     /\brecruit.*\b(jiha[di]|extremis)/i,
     /\b(terror|extremis)\s+(attack|plot|cell)\s+(plan|instruct|manual)/i,
     /\bradicaliz/i,
+    /\b(isis|isil|al[- ]?qaeda)\s+(manual|training|recruitment)/i,
+    /\bmartyrdom\s+(operation|attack|video)/i,
+    /\b(bomb|attack)\s+(airport|subway|train|school|mosque|synagogue|church)\s+(how|plan|target)/i,
   ],
 };
 
@@ -150,7 +240,7 @@ const BLOCKED_MESSAGE =
  * This is a lightweight keyword-based classifier. For production use,
  * the OpenAI Moderation API is preferred (see scanContentWithModeration).
  */
-export function scanContent(text: string): ContentFilterResult {
+export function scanContent(text: string, appSlug?: string): ContentFilterResult {
   const flagged: FlagCategory[] = [];
 
   for (const [category, patterns] of Object.entries(CATEGORY_PATTERNS) as [FlagCategory, RegExp[]][]) {
@@ -164,6 +254,18 @@ export function scanContent(text: string): ContentFilterResult {
 
   if (flagged.length === 0) {
     return { flagged: false, categories: [], message: '', confidence: 0, scanner: 'keyword_fallback' };
+  }
+
+  // Apply per-app safety config if provided
+  if (appSlug) {
+    const result: ContentFilterResult = {
+      flagged: true,
+      categories: flagged,
+      message: BLOCKED_MESSAGE,
+      confidence: 1.0,
+      scanner: 'keyword_fallback',
+    };
+    return applySafetyConfig(result, appSlug);
   }
 
   return {

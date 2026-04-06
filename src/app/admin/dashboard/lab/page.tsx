@@ -76,6 +76,11 @@ export default function LabPage() {
   const [running, setRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  // TTS-specific voice options
+  const [ttsGender, setTtsGender] = useState<'male' | 'female' | ''>('')
+  const [ttsVoiceId, setTtsVoiceId] = useState<string>('')
+  const [ttsAccent, setTtsAccent] = useState<string>('')
+  const [ttsProvider, setTtsProvider] = useState<string>('auto')
 
   const loadProviders = useCallback(async () => {
     setLoadingProviders(true)
@@ -151,6 +156,13 @@ export default function LabPage() {
         body.modelId = forceModel
       }
       body.appSlug = appProfile
+      // TTS-specific voice options
+      if (['tts', 'voice', 'voice_output'].includes(capability)) {
+        if (ttsGender) body.gender = ttsGender
+        if (ttsVoiceId) body.voiceId = ttsVoiceId
+        if (ttsAccent) body.accent = ttsAccent
+        if (ttsProvider !== 'auto') body.ttsProvider = ttsProvider
+      }
       const res = await fetch('/api/admin/brain/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -363,6 +375,82 @@ export default function LabPage() {
             </div>
           </div>
 
+          {/* TTS Voice Options */}
+          {['tts', 'voice', 'voice_output'].includes(capability) && (
+            <div className="space-y-3 p-3 bg-purple-500/5 border border-purple-500/10 rounded-lg">
+              <p className="text-[10px] uppercase tracking-wider text-purple-400 font-mono">TTS Voice Configuration</p>
+
+              {/* Gender selector */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] uppercase tracking-wider text-slate-500 font-mono">Gender</label>
+                <div className="flex gap-2">
+                  {(['', 'female', 'male'] as const).map((g) => (
+                    <button
+                      key={g || 'auto'}
+                      onClick={() => setTtsGender(g)}
+                      className={`text-xs px-3 py-1 rounded-lg border transition-colors ${
+                        ttsGender === g
+                          ? 'bg-purple-500/10 text-purple-400 border-purple-500/20'
+                          : 'bg-white/[0.04] text-slate-400 border-transparent hover:bg-white/[0.06]'
+                      }`}
+                    >
+                      {g === '' ? 'Auto' : g === 'female' ? '♀ Female' : '♂ Male'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Voice ID */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] uppercase tracking-wider text-slate-500 font-mono">Voice ID (optional)</label>
+                <input
+                  type="text"
+                  value={ttsVoiceId}
+                  onChange={(e) => setTtsVoiceId(e.target.value)}
+                  placeholder="e.g. nova, Arista-PlayAI, onyx…"
+                  className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-1.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-purple-500/40 transition-colors"
+                />
+              </div>
+
+              {/* Accent / Language */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] uppercase tracking-wider text-slate-500 font-mono">Accent / Language</label>
+                <select
+                  value={ttsAccent}
+                  onChange={(e) => setTtsAccent(e.target.value)}
+                  className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-purple-500/40 transition-colors"
+                >
+                  <option value="" className="bg-[#0a0f1a]">Auto (default)</option>
+                  <option value="en-US" className="bg-[#0a0f1a]">English (US)</option>
+                  <option value="en-GB" className="bg-[#0a0f1a]">English (UK)</option>
+                  <option value="en-AU" className="bg-[#0a0f1a]">English (AU)</option>
+                  <option value="arabic" className="bg-[#0a0f1a]">Arabic</option>
+                  <option value="fr-FR" className="bg-[#0a0f1a]">French</option>
+                  <option value="es-ES" className="bg-[#0a0f1a]">Spanish</option>
+                  <option value="de-DE" className="bg-[#0a0f1a]">German</option>
+                  <option value="zh-CN" className="bg-[#0a0f1a]">Chinese (Mandarin)</option>
+                  <option value="ja-JP" className="bg-[#0a0f1a]">Japanese</option>
+                </select>
+              </div>
+
+              {/* TTS Provider */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] uppercase tracking-wider text-slate-500 font-mono">TTS Provider</label>
+                <select
+                  value={ttsProvider}
+                  onChange={(e) => setTtsProvider(e.target.value)}
+                  className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-purple-500/40 transition-colors"
+                >
+                  <option value="auto" className="bg-[#0a0f1a]">Auto (fastest available)</option>
+                  <option value="groq" className="bg-[#0a0f1a]">Groq (low-cost, fast)</option>
+                  <option value="openai" className="bg-[#0a0f1a]">OpenAI (premium)</option>
+                  <option value="gemini" className="bg-[#0a0f1a]">Gemini (multimodal)</option>
+                  <option value="huggingface" className="bg-[#0a0f1a]">HuggingFace (free)</option>
+                </select>
+              </div>
+            </div>
+          )}
+
           {/* Prompt Input */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -424,6 +512,39 @@ export default function LabPage() {
               </button>
             )}
           </div>
+
+          {/* Audio player for TTS results */}
+          {result?.audioUrl && (
+            <div className="space-y-2">
+              <p className="text-[10px] uppercase tracking-wider text-purple-400 font-mono">Audio Output</p>
+              <audio
+                controls
+                src={result.audioUrl}
+                className="w-full rounded-lg"
+                style={{ filter: 'invert(0.8) hue-rotate(180deg)' }}
+              />
+              <a
+                href={result.audioUrl}
+                download="tts-output.mp3"
+                className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors"
+              >
+                ↓ Download audio
+              </a>
+            </div>
+          )}
+
+          {/* Image output */}
+          {result?.imageUrl && (
+            <div className="space-y-2">
+              <p className="text-[10px] uppercase tracking-wider text-blue-400 font-mono">Image Output</p>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={result.imageUrl}
+                alt="Generated image"
+                className="w-full rounded-lg border border-white/[0.08]"
+              />
+            </div>
+          )}
 
           {/* Structured Execution Response */}
           {result && (
@@ -529,6 +650,7 @@ export default function LabPage() {
                 {result?.imageUrl && (
                   <div className="space-y-2">
                     <p className="text-[10px] uppercase tracking-wider text-slate-500 font-mono">Generated Image</p>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={result.imageUrl}
                       alt="Generated"

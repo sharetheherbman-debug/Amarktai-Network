@@ -30,6 +30,7 @@ describe('Integration Verification', () => {
     setProviderHealth('anthropic', 'configured')
     setProviderHealth('cohere', 'configured')
     setProviderHealth('qwen', 'configured')
+    setProviderHealth('mistral', 'configured')
   }
 
   beforeEach(() => {
