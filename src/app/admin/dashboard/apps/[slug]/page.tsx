@@ -7,7 +7,7 @@ import Link from 'next/link'
 import {
   ArrowLeft, RefreshCw, AlertCircle, CheckCircle, Clock, WifiOff,
   LayoutDashboard, Brain, BarChart3, BookOpen, Target, FileText,
-  Activity, Cpu, Users, Zap, Globe, Shield, Bot, Copy, Check, Loader2,
+  Activity, Zap, Globe, Shield, Bot, Copy, Check, Loader2,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 
@@ -262,7 +262,7 @@ export default function AppDetailPage() {
         {tab === 'Overview' && <OverviewTab app={app} />}
         {tab === 'AI Stack' && <AIStackTab app={app} />}
         {tab === 'Agents' && <AgentsTab appSlug={app.slug} appId={app.slug} appSecret={app.appSecret} />}
-        {tab === 'Metrics' && <MetricsTab />}
+        {tab === 'Metrics' && <MetricsTab appSlug={app.slug} />}
         {tab === 'Learning' && <AppLearningTab appSlug={app.slug} />}
         {tab === 'Strategy' && <StrategyTab appSlug={app.slug} appName={app.name} appCategory={app.category} />}
         {tab === 'Events' && <AppEventsTab appSlug={app.slug} />}
@@ -369,6 +369,12 @@ function AgentsTab({ appSlug, appId, appSecret }: { appSlug: string; appId: stri
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
+  const [secretRevealed, setSecretRevealed] = useState(false)
+
+  const maskedSecret = appSecret.length > 8
+    ? `${appSecret.slice(0, 4)}${'•'.repeat(Math.max(0, appSecret.length - 8))}${appSecret.slice(-4)}`
+    : '••••••••'
+  const displaySecret = secretRevealed ? appSecret : maskedSecret
 
   const loadAgents = useCallback(async () => {
     setLoading(true)
@@ -523,6 +529,12 @@ function AgentsTab({ appSlug, appId, appSecret }: { appSlug: string; appId: stri
                 <Globe className="w-4 h-4 text-emerald-400" />
                 <h4 className="text-sm font-semibold text-white">Live Endpoint URLs</h4>
                 <span className="text-[10px] text-emerald-400 font-mono bg-emerald-500/10 px-1.5 py-0.5 rounded">SAVE to activate</span>
+                <button
+                  onClick={() => setSecretRevealed(r => !r)}
+                  className="ml-auto text-[10px] text-slate-500 hover:text-slate-300 transition-colors font-mono"
+                >
+                  {secretRevealed ? '🙈 Hide secret' : '👁 Reveal secret'}
+                </button>
               </div>
               <p className="text-xs text-slate-400">Use these URLs in your app to send requests through the Brain Gateway. All requests are authenticated with your App ID and Secret.</p>
 
@@ -531,11 +543,18 @@ function AgentsTab({ appSlug, appId, appSecret }: { appSlug: string; appId: stri
                 const agentTaskType = AGENT_TASK_TYPE[agent.type] ?? 'chat'
                 const snippet = JSON.stringify({
                   appId: appId,
+                  appSecret: displaySecret,
+                  taskType: agentTaskType,
+                  message: '<user message here>',
+                }, null, 2)
+                const realSnippet = JSON.stringify({
+                  appId: appId,
                   appSecret: appSecret,
                   taskType: agentTaskType,
                   message: '<user message here>',
                 }, null, 2)
-                const curlCmd = `curl -X POST ${endpointUrl} \\\n  -H "Content-Type: application/json" \\\n  -d '{"appId":"${appId}","appSecret":"${appSecret}","taskType":"${agentTaskType}","message":"Hello"}'`
+                const curlCmd = `curl -X POST ${endpointUrl} \\\n  -H "Content-Type: application/json" \\\n  -d '{"appId":"${appId}","appSecret":"${displaySecret}","taskType":"${agentTaskType}","message":"Hello"}'`
+                const realCurlCmd = `curl -X POST ${endpointUrl} \\\n  -H "Content-Type: application/json" \\\n  -d '{"appId":"${appId}","appSecret":"${appSecret}","taskType":"${agentTaskType}","message":"Hello"}'`
                 return (
                   <div key={agent.type} className="space-y-2">
                     <p className="text-[10px] uppercase tracking-wider text-slate-500 font-mono">{agent.name} — {agent.type}</p>
@@ -556,7 +575,7 @@ function AgentsTab({ appSlug, appId, appSecret }: { appSlug: string; appId: stri
                     <div className="relative">
                       <pre className="text-[11px] text-slate-400 font-mono bg-white/[0.02] border border-white/[0.05] rounded-lg p-3 overflow-x-auto leading-relaxed">{snippet}</pre>
                       <button
-                        onClick={(e) => { e.stopPropagation(); copyToClipboard(snippet, `${agent.type}-json`) }}
+                        onClick={(e) => { e.stopPropagation(); copyToClipboard(realSnippet, `${agent.type}-json`) }}
                         className="absolute top-2 right-2 text-slate-600 hover:text-slate-300 transition-colors"
                       >
                         {copiedKey === `${agent.type}-json` ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
@@ -571,7 +590,7 @@ function AgentsTab({ appSlug, appId, appSecret }: { appSlug: string; appId: stri
                       <div className="relative mt-1">
                         <pre className="text-[11px] text-slate-400 font-mono bg-white/[0.02] border border-white/[0.05] rounded-lg p-3 overflow-x-auto leading-relaxed mt-1">{curlCmd}</pre>
                         <button
-                          onClick={(e) => { e.stopPropagation(); copyToClipboard(curlCmd, `${agent.type}-curl`) }}
+                          onClick={(e) => { e.stopPropagation(); copyToClipboard(realCurlCmd, `${agent.type}-curl`) }}
                           className="absolute top-2 right-2 text-slate-600 hover:text-slate-300 transition-colors"
                         >
                           {copiedKey === `${agent.type}-curl` ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
@@ -640,36 +659,120 @@ function AIStackTab({ app }: { app: AppRecord }) {
 }
 
 /* ── Tab: Metrics ────────────────────────────────────────── */
-function MetricsTab() {
+interface AppMetrics {
+  totalRequests: number
+  successfulAiCalls: number
+  failedCalls: number
+  avgLatencyMs: number | null
+  taskBreakdown: Record<string, number>
+}
+
+function MetricsTab({ appSlug }: { appSlug: string }) {
+  const [metrics, setMetrics] = useState<AppMetrics | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const loadMetrics = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/admin/events?appSlug=${encodeURIComponent(appSlug)}&limit=200`)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const data = await res.json()
+      const events: Array<{ success: boolean; latencyMs: number | null; taskType: string }> = data.events ?? []
+      const totalRequests = data.total ?? events.length
+      const successfulAiCalls = events.filter((e) => e.success).length
+      const failedCalls = events.filter((e) => !e.success).length
+      const latencies = events.map((e) => e.latencyMs).filter((l): l is number => l !== null)
+      const avgLatencyMs = latencies.length > 0 ? Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length) : null
+      const taskBreakdown: Record<string, number> = {}
+      for (const e of events) {
+        if (e.taskType) taskBreakdown[e.taskType] = (taskBreakdown[e.taskType] ?? 0) + 1
+      }
+      setMetrics({ totalRequests, successfulAiCalls, failedCalls, avgLatencyMs, taskBreakdown })
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load metrics')
+    } finally {
+      setLoading(false)
+    }
+  }, [appSlug])
+
+  useEffect(() => { loadMetrics() }, [loadMetrics])
+
+  const fmtNum = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n)
+
+  const cards = metrics
+    ? [
+        { label: 'Total AI Requests', value: fmtNum(metrics.totalRequests), icon: Activity, color: 'text-blue-400' },
+        { label: 'Successful Calls', value: fmtNum(metrics.successfulAiCalls), icon: CheckCircle, color: 'text-emerald-400' },
+        { label: 'Failed Calls', value: fmtNum(metrics.failedCalls), icon: AlertCircle, color: 'text-red-400' },
+        { label: 'Avg Latency', value: metrics.avgLatencyMs !== null ? `${metrics.avgLatencyMs}ms` : '—', icon: Clock, color: 'text-amber-400' },
+      ]
+    : [
+        { label: 'Total AI Requests', value: '—', icon: Activity, color: 'text-blue-400' },
+        { label: 'Successful Calls', value: '—', icon: CheckCircle, color: 'text-emerald-400' },
+        { label: 'Failed Calls', value: '—', icon: AlertCircle, color: 'text-red-400' },
+        { label: 'Avg Latency', value: '—', icon: Clock, color: 'text-amber-400' },
+      ]
+
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {[
-          { label: 'Total Requests', value: '—', icon: Activity, color: 'text-blue-400' },
-          { label: 'Active Users', value: '—', icon: Users, color: 'text-emerald-400' },
-          { label: 'AI Calls', value: '—', icon: Cpu, color: 'text-violet-400' },
-        ].map((m) => {
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-white">Brain Request Metrics</h3>
+        <button
+          onClick={loadMetrics}
+          disabled={loading}
+          className="text-[10px] text-slate-500 hover:text-slate-300 transition-colors flex items-center gap-1"
+        >
+          <RefreshCw className={`w-2.5 h-2.5 ${loading ? 'animate-spin' : ''}`} />
+          Refresh
+        </button>
+      </div>
+
+      {error && <p className="text-xs text-red-400">{error}</p>}
+
+      {/* Stat cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        {cards.map((m) => {
           const Icon = m.icon
           return (
-            <div
-              key={m.label}
-              className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-5 space-y-2"
-            >
+            <div key={m.label} className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-5 space-y-2">
               <div className="flex items-center gap-2">
                 <Icon className={`w-4 h-4 ${m.color}`} />
-                <p className="text-[10px] uppercase tracking-wider text-slate-500 font-mono">
-                  {m.label}
-                </p>
+                <p className="text-[10px] uppercase tracking-wider text-slate-500 font-mono">{m.label}</p>
               </div>
-              <p className="text-2xl font-bold text-white font-heading">{m.value}</p>
+              <p className="text-2xl font-bold text-white font-heading">
+                {loading ? <span className="text-slate-600">…</span> : m.value}
+              </p>
             </div>
           )
         })}
       </div>
 
-      <div className="bg-blue-500/5 border border-blue-500/10 rounded-xl p-4">
-        <p className="text-xs text-slate-400">Metrics are collected from brain events for this app. No events logged yet.</p>
-      </div>
+      {/* Task breakdown */}
+      {metrics && Object.keys(metrics.taskBreakdown).length > 0 && (
+        <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-5 space-y-3">
+          <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider font-mono">By Task Type</h4>
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(metrics.taskBreakdown)
+              .sort(([, a], [, b]) => b - a)
+              .map(([task, count]) => (
+                <span key={task} className="text-xs font-mono text-slate-400 bg-white/[0.04] border border-white/[0.06] px-2 py-1 rounded">
+                  {task} <span className="text-white font-semibold">{count}</span>
+                </span>
+              ))}
+          </div>
+        </div>
+      )}
+
+      {metrics && metrics.totalRequests === 0 && (
+        <div className="bg-blue-500/5 border border-blue-500/10 rounded-xl p-4">
+          <p className="text-xs text-slate-400">
+            No brain requests recorded for this app yet. Requests appear here once the app sends messages through the Brain Gateway.
+          </p>
+        </div>
+      )}
     </div>
   )
 }

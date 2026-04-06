@@ -24,7 +24,7 @@ export interface BrainRequestInput {
   taskType: string           // e.g. 'chat' | 'analysis' | 'content' | 'support'
   message: string            // the prompt / payload
   metadata?: Record<string, unknown>
-  requestMode?: 'sync' | 'async'  // 'async' is a future placeholder
+  requestMode?: 'sync' | 'async'  // 'async' queues via batch-processor; 'sync' (default) returns immediately
   traceId?: string           // caller-supplied trace ID; generated if omitted
 }
 
