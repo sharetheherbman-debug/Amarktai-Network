@@ -2,13 +2,15 @@
  * Coding Agent — AI App Builder Engine
  *
  * Accepts a natural language app description and generates a complete project
- * structure with files, folders, and boilerplate. Supports multiple project
- * types (Next.js, React, Express, Flask, Static HTML) and iterative refinement.
+ * using a real AI provider. Falls back to scaffold templates when no provider
+ * is configured. Supports multiple project types and iterative refinement.
  *
  * Server-side only — no secrets exposed to the client.
  */
 
 import { randomUUID } from 'crypto'
+import { callProvider } from '@/lib/brain'
+import { getDefaultModelForProvider } from '@/lib/model-registry'
 
 // ── Project Types ────────────────────────────────────────────────────────────
 
@@ -103,6 +105,8 @@ export interface GenerationEvent {
   projectType: ProjectType
   timestamp: string
   fileCount: number
+  /** Which AI provider was used, or null when falling back to scaffold. */
+  aiProvider: string | null
 }
 
 export interface GenerationSession {
@@ -124,6 +128,146 @@ export interface GenerateOptions {
 
 // In-memory session store (persists for server lifetime)
 const sessions = new Map<string, GenerationSession>()
+
+// ── AI Provider Selection ─────────────────────────────────────────────────────
+
+/** Ordered preference for code-generation providers (best quality first). */
+const CODE_PROVIDER_PREFERENCE = [
+  'anthropic', 'openai', 'deepseek', 'groq', 'gemini',
+  'openrouter', 'grok', 'cohere', 'qwen', 'nvidia',
+]
+
+/**
+ * Lazily queries the DB for the best available code-generation provider.
+ * Returns null when no provider is configured (triggers scaffold fallback).
+ */
+async function selectCodeProvider(): Promise<{ providerKey: string; model: string } | null> {
+  try {
+    // Dynamic import avoids circular deps and keeps the module tree clean.
+    const { prisma } = await import('@/lib/prisma')
+    const providers = await prisma.aiProvider.findMany({
+      where: { enabled: true, healthStatus: { notIn: ['disabled', 'error'] } },
+      select: { providerKey: true, apiKey: true, defaultModel: true },
+      orderBy: { sortOrder: 'asc' },
+    })
+    const available = providers.filter(p => p.apiKey)
+    for (const preferred of CODE_PROVIDER_PREFERENCE) {
+      const p = available.find(a => a.providerKey === preferred)
+      if (p) {
+        return {
+          providerKey: p.providerKey,
+          model: p.defaultModel || getDefaultModelForProvider(p.providerKey),
+        }
+      }
+    }
+    if (available.length > 0) {
+      const first = available[0]!
+      return {
+        providerKey: first.providerKey,
+        model: first.defaultModel || getDefaultModelForProvider(first.providerKey),
+      }
+    }
+  } catch {
+    // DB unavailable — fall through to scaffold
+  }
+  return null
+}
+
+// ── AI Prompt Builders ────────────────────────────────────────────────────────
+
+function buildGeneratePrompt(
+  description: string,
+  projectType: ProjectType,
+  opts: GenerateOptions,
+): string {
+  const info = PROJECT_TYPES[projectType]
+  const extras = [
+    opts.includeDocker ? 'Include a Dockerfile.' : '',
+    opts.includeTests ? 'Include test files.' : '',
+    opts.includeDocs !== false ? 'Include a README.md.' : '',
+    opts.styling === 'tailwind' ? 'Use Tailwind CSS for styling.' : '',
+    opts.styling === 'css-modules' ? 'Use CSS Modules for styling.' : '',
+  ].filter(Boolean).join(' ')
+
+  return `You are an expert ${info.language} developer. Generate a complete, production-ready ${info.label} project based on this description: "${description}"
+
+${extras}
+
+Return ONLY a valid JSON array — no markdown, no explanation, no code fences. Format:
+[
+  {"path": "relative/file/path.ext", "language": "typescript|javascript|python|html|css|json|markdown|yaml|dockerfile|shell|text", "content": "complete file content here"},
+  ...
+]
+
+Generate all files needed for a working ${info.label} application tailored to the description. Every file must be complete and functional.`
+}
+
+function buildRefinePrompt(
+  existingFiles: GeneratedFile[],
+  feedback: string,
+  projectType: ProjectType,
+): string {
+  const info = PROJECT_TYPES[projectType]
+  // Limit context to avoid exceeding max tokens
+  const fileSummary = existingFiles
+    .map(f => `// ${f.path}\n${f.content}`)
+    .join('\n\n---\n\n')
+    .slice(0, 14_000)
+
+  return `You are an expert ${info.language} developer. Modify the existing ${info.label} project based on user feedback.
+
+EXISTING FILES:
+${fileSummary}
+
+USER FEEDBACK: "${feedback}"
+
+Apply ALL requested changes. Return ONLY a valid JSON array of ALL files (modified and unchanged) — no markdown, no explanation:
+[
+  {"path": "relative/file/path.ext", "language": "typescript|javascript|python|html|css|json|markdown|yaml|dockerfile|shell|text", "content": "complete file content here"},
+  ...
+]`
+}
+
+// ── AI Response Parser ────────────────────────────────────────────────────────
+
+/** Parse AI output into GeneratedFile[]. Returns [] on any parse failure. */
+function parseAIFiles(aiOutput: string): GeneratedFile[] {
+  const isValidFile = (f: unknown): f is GeneratedFile =>
+    typeof f === 'object' && f !== null &&
+    typeof (f as GeneratedFile).path === 'string' &&
+    typeof (f as GeneratedFile).content === 'string' &&
+    typeof (f as GeneratedFile).language === 'string'
+
+  const tryParse = (raw: string): GeneratedFile[] | null => {
+    try {
+      const parsed: unknown = JSON.parse(raw)
+      if (Array.isArray(parsed) && parsed.every(isValidFile)) return parsed
+    } catch { /* fall through */ }
+    return null
+  }
+
+  const cleaned = aiOutput.trim()
+
+  // 1. Direct JSON array
+  const direct = tryParse(cleaned)
+  if (direct) return direct
+
+  // 2. JSON inside a markdown code fence
+  const fenceMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/)
+  if (fenceMatch?.[1]) {
+    const fromFence = tryParse(fenceMatch[1].trim())
+    if (fromFence) return fromFence
+  }
+
+  // 3. First JSON array found in text
+  const arrayMatch = cleaned.match(/\[[\s\S]*\]/)
+  if (arrayMatch) {
+    const fromArray = tryParse(arrayMatch[0])
+    if (fromArray) return fromArray
+  }
+
+  return []
+}
 
 // ── Language Detection ───────────────────────────────────────────────────────
 
@@ -742,12 +886,17 @@ export function getProjectTypes(): ProjectTypeInfo[] {
 
 /**
  * Generate a complete app from a natural language description.
+ *
+ * Calls the best available AI provider to produce real, description-specific
+ * code. Falls back to scaffold templates when no provider is configured so
+ * the feature always returns something useful — but the caller should surface
+ * a warning when aiProvider is null (no AI was available).
  */
-export function generateApp(
+export async function generateApp(
   description: string,
   projectType: ProjectType,
   options: GenerateOptions = {},
-): GenerationSession {
+): Promise<GenerationSession> {
   const resolvedOpts: GenerateOptions = {
     includeTests: options.includeTests ?? false,
     includeDocs: options.includeDocs ?? true,
@@ -755,38 +904,60 @@ export function generateApp(
     styling: options.styling ?? 'tailwind',
   }
 
-  const generators: Record<ProjectType, (d: string, o: GenerateOptions) => GeneratedFile[]> = {
+  const scaffold: Record<ProjectType, (d: string, o: GenerateOptions) => GeneratedFile[]> = {
     nextjs: generateNextjsApp,
     react: generateReactApp,
     express: generateExpressApp,
     flask: generateFlaskApp,
     static: generateStaticApp,
   }
+  const generator = scaffold[projectType]
+  if (!generator) throw new Error(`Unsupported project type: ${projectType}`)
 
-  const generator = generators[projectType]
-  if (!generator) {
-    throw new Error(`Unsupported project type: ${projectType}`)
+  // ── Attempt real AI generation ────────────────────────────────────────
+  let files: GeneratedFile[] = []
+  let aiProvider: string | null = null
+
+  const providerInfo = await selectCodeProvider()
+  if (providerInfo) {
+    const prompt = buildGeneratePrompt(description, projectType, resolvedOpts)
+    const result = await callProvider(providerInfo.providerKey, providerInfo.model, prompt)
+    if (result.ok && result.output) {
+      const aiFiles = parseAIFiles(result.output)
+      if (aiFiles.length > 0) {
+        // AI files take priority; append any scaffold files not covered by AI
+        const aiPaths = new Set(aiFiles.map(f => f.path))
+        const extra = generator(description, resolvedOpts).filter(f => !aiPaths.has(f.path))
+        files = [...aiFiles, ...extra]
+        aiProvider = providerInfo.providerKey
+      }
+    }
   }
 
-  const files = generator(description, resolvedOpts)
+  // ── Fallback to pure scaffold when AI unavailable / parse failed ──────
+  if (files.length === 0) {
+    files = generator(description, resolvedOpts)
+  }
 
   const sessionId = randomUUID()
   const now = new Date().toISOString()
-  const event: GenerationEvent = {
-    id: randomUUID(),
-    type: 'generate',
-    description,
-    projectType,
-    timestamp: now,
-    fileCount: files.length,
-  }
 
   const session: GenerationSession = {
     id: sessionId,
     description,
     projectType,
     files,
-    history: [event],
+    history: [
+      {
+        id: randomUUID(),
+        type: 'generate',
+        description,
+        projectType,
+        timestamp: now,
+        fileCount: files.length,
+        aiProvider,
+      },
+    ],
     createdAt: now,
     updatedAt: now,
   }
@@ -797,31 +968,52 @@ export function generateApp(
 
 /**
  * Refine an existing generation based on user feedback.
- * Appends new/modified files and records the refinement in history.
+ *
+ * Calls the best available AI provider with the full existing file tree plus
+ * user feedback. Falls back to keyword-based template patching when no
+ * provider is configured.
  */
-export function refineApp(
+export async function refineApp(
   sessionId: string,
   feedback: string,
-): GenerationSession {
+): Promise<GenerationSession> {
   const session = sessions.get(sessionId)
-  if (!session) {
-    throw new Error(`Session not found: ${sessionId}`)
+  if (!session) throw new Error(`Session not found: ${sessionId}`)
+
+  // ── Attempt real AI refinement ────────────────────────────────────────
+  let refinedFiles: GeneratedFile[] = []
+  let aiProvider: string | null = null
+
+  const providerInfo = await selectCodeProvider()
+  if (providerInfo) {
+    const prompt = buildRefinePrompt(session.files, feedback, session.projectType)
+    const result = await callProvider(providerInfo.providerKey, providerInfo.model, prompt)
+    if (result.ok && result.output) {
+      const aiFiles = parseAIFiles(result.output)
+      if (aiFiles.length > 0) {
+        refinedFiles = aiFiles
+        aiProvider = providerInfo.providerKey
+      }
+    }
   }
 
-  const refinedFiles = applyRefinement(session.files, feedback, session.projectType)
+  // ── Fallback to keyword-based template patching ───────────────────────
+  if (refinedFiles.length === 0) {
+    refinedFiles = applyRefinement(session.files, feedback, session.projectType)
+  }
 
   const now = new Date().toISOString()
-  const event: GenerationEvent = {
+
+  session.files = refinedFiles
+  session.history.push({
     id: randomUUID(),
     type: 'refine',
     description: feedback,
     projectType: session.projectType,
     timestamp: now,
     fileCount: refinedFiles.length,
-  }
-
-  session.files = refinedFiles
-  session.history.push(event)
+    aiProvider,
+  })
   session.updatedAt = now
 
   return session

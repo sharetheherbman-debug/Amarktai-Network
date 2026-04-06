@@ -36,6 +36,13 @@ const ALLOWED_HF_IMAGE_MODELS = [
   'stabilityai/stable-diffusion-2-1',
 ] as const;
 
+/** Together AI image models in preference order (FLUX first, then SDXL). */
+const TOGETHER_IMAGE_MODELS: ReadonlyArray<{ id: string; steps: number }> = [
+  { id: 'black-forest-labs/FLUX.1-schnell-Free', steps: 4 },
+  { id: 'black-forest-labs/FLUX.1-schnell', steps: 4 },
+  { id: 'stabilityai/stable-diffusion-xl-base-1.0', steps: 30 },
+];
+
 /** Prepend a style prefix to the prompt to reinforce tasteful imagery. */
 function enforceStylePrefix(prompt: string): string {
   const prefix =
@@ -157,6 +164,50 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // ── Provider fallback: Together AI (FLUX / SDXL) ───────────────────
+    const togetherKey = process.env.TOGETHER_API_KEY;
+    if (togetherKey) {
+      for (const { id: modelId, steps } of TOGETHER_IMAGE_MODELS) {
+        try {
+          const response = await fetch('https://api.together.xyz/v1/images/generations', {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${togetherKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: modelId,
+              prompt: finalPrompt,
+              n: 1,
+              steps,
+              width: 1024,
+              height: 1024,
+            }),
+          });
+
+          if (response.ok) {
+            const data = await response.json() as { data?: Array<{ url?: string }> };
+            const imageUrl = data.data?.[0]?.url;
+            if (imageUrl) {
+              return NextResponse.json({
+                capability: 'suggestive_image_generation',
+                executed: true,
+                fallback_used: true,
+                imageUrl,
+                provider: 'together',
+                model: modelId,
+                promptUsed: finalPrompt,
+                promptRewritten,
+                size,
+              });
+            }
+          }
+        } catch {
+          // Try next Together model
+        }
+      }
+    }
+
     // ── Provider fallback: HuggingFace SDXL ────────────────────────────
     const hfKey = process.env.HUGGINGFACE_API_KEY;
     if (hfKey) {
@@ -204,8 +255,8 @@ export async function POST(request: NextRequest) {
         executed: false,
         error:
           'No image generation provider is configured. ' +
-          'Add OPENAI_API_KEY or HUGGINGFACE_API_KEY to enable suggestive image generation.',
-        providers_checked: ['openai', 'huggingface'],
+          'Add OPENAI_API_KEY, TOGETHER_API_KEY, or HUGGINGFACE_API_KEY to enable suggestive image generation.',
+        providers_checked: ['openai', 'together', 'huggingface'],
       },
       { status: 503 },
     );

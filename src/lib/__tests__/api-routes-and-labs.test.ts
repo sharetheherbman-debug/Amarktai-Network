@@ -37,6 +37,21 @@ vi.mock('../vector-store', () => ({
   isQdrantHealthy: vi.fn().mockResolvedValue(false),
 }))
 
+// Mock prisma so coding-agent's selectCodeProvider returns no DB providers,
+// triggering scaffold-only generation — safe for unit tests without a real DB.
+vi.mock('../prisma', () => ({
+  prisma: {
+    aiProvider: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
+  },
+}))
+
+// Mock callProvider so no real network calls are made in unit tests.
+vi.mock('../brain', () => ({
+  callProvider: vi.fn().mockResolvedValue({ ok: false, output: null, error: 'mocked', latencyMs: 0, model: '', providerKey: '' }),
+}))
+
 // ── Coding Agent ─────────────────────────────────────────────────────────────
 
 import {
@@ -92,8 +107,8 @@ describe('Coding Agent', () => {
     const projectTypes: ProjectType[] = ['nextjs', 'react', 'express', 'flask', 'static']
 
     for (const pt of projectTypes) {
-      it(`generates a ${pt} project`, () => {
-        const session = generateApp(`Build a simple ${pt} app`, pt)
+      it(`generates a ${pt} project`, async () => {
+        const session = await generateApp(`Build a simple ${pt} app`, pt)
         expect(session.id).toBeTruthy()
         expect(session.projectType).toBe(pt)
         expect(session.description).toContain(pt)
@@ -106,8 +121,8 @@ describe('Coding Agent', () => {
       })
     }
 
-    it('generates files with path, content, and language', () => {
-      const session = generateApp('A todo app', 'react')
+    it('generates files with path, content, and language', async () => {
+      const session = await generateApp('A todo app', 'react')
       for (const file of session.files) {
         expect(file.path).toBeTruthy()
         expect(typeof file.content).toBe('string')
@@ -115,52 +130,52 @@ describe('Coding Agent', () => {
       }
     })
 
-    it('adds test files when refined with testing feedback', () => {
-      const session = generateApp('A simple API', 'react')
-      const refined = refineApp(session.id, 'Add testing to the project')
+    it('adds test files when refined with testing feedback', async () => {
+      const session = await generateApp('A simple API', 'react')
+      const refined = await refineApp(session.id, 'Add testing to the project')
       const hasTestFile = refined.files.some(
         (f) => f.path.includes('test') || f.path.includes('spec')
       )
       expect(hasTestFile).toBe(true)
     })
 
-    it('respects includeDocker option', () => {
+    it('respects includeDocker option', async () => {
       const opts: GenerateOptions = { includeDocker: true }
-      const session = generateApp('A web app', 'nextjs', opts)
+      const session = await generateApp('A web app', 'nextjs', opts)
       const hasDockerfile = session.files.some(
         (f) => f.path.toLowerCase().includes('docker')
       )
       expect(hasDockerfile).toBe(true)
     })
 
-    it('history event is type "generate"', () => {
-      const session = generateApp('A blog', 'static')
+    it('history event is type "generate"', async () => {
+      const session = await generateApp('A blog', 'static')
       expect(session.history[0].type).toBe('generate')
       expect(session.history[0].fileCount).toBe(session.files.length)
     })
   })
 
   describe('refineApp', () => {
-    it('refines an existing session', () => {
-      const session = generateApp('A dashboard', 'react')
+    it('refines an existing session', async () => {
+      const session = await generateApp('A dashboard', 'react')
       const initialHistoryLen = session.history.length
-      const refined = refineApp(session.id, 'Add a dark mode toggle')
+      const refined = await refineApp(session.id, 'Add a dark mode toggle')
       expect(refined.id).toBe(session.id)
       expect(refined.history.length).toBeGreaterThanOrEqual(initialHistoryLen + 1)
       expect(refined.files.length).toBeGreaterThan(0)
     })
 
-    it('refinement event has type "refine"', () => {
-      const session = generateApp('A calculator', 'static')
-      const refined = refineApp(session.id, 'Add square root button')
+    it('refinement event has type "refine"', async () => {
+      const session = await generateApp('A calculator', 'static')
+      const refined = await refineApp(session.id, 'Add square root button')
       const lastEvent = refined.history[refined.history.length - 1]
       expect(lastEvent.type).toBe('refine')
     })
   })
 
   describe('getSessionHistory', () => {
-    it('returns history for a valid session', () => {
-      const session = generateApp('A chat app', 'nextjs')
+    it('returns history for a valid session', async () => {
+      const session = await generateApp('A chat app', 'nextjs')
       const history = getSessionHistory(session.id)
       expect(Array.isArray(history)).toBe(true)
       expect(history.length).toBeGreaterThanOrEqual(1)
@@ -181,8 +196,8 @@ describe('Coding Agent', () => {
       expect(getSession('no-such-id')).toBeNull()
     })
 
-    it('listSessions includes created sessions', () => {
-      const session = generateApp('An app', 'flask')
+    it('listSessions includes created sessions', async () => {
+      const session = await generateApp('An app', 'flask')
       const all = listSessions()
       expect(all.some((s: GenerationSession) => s.id === session.id)).toBe(true)
     })
