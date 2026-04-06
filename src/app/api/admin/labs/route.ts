@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
           { status: 400 },
         )
       }
-      const result = generateApp(
+      const result = await generateApp(
         description as string,
         projectType as ProjectType,
         (options ?? {}) as GenerateOptions,
@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
           { status: 400 },
         )
       }
-      const result = refineApp(sessionId as string, feedback as string)
+      const result = await refineApp(sessionId as string, feedback as string)
       return NextResponse.json({ session: result })
     }
 

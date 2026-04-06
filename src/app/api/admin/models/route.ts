@@ -8,7 +8,40 @@ import {
   getEnabledModels,
   getValidatorEligibleModels,
   getCategorySummary,
+  setProviderHealth,
+  getProviderHealth,
+  type ProviderHealthStatus,
 } from '@/lib/model-registry'
+import { prisma } from '@/lib/prisma'
+
+/**
+ * Sync the model-registry health cache from DB so that model listings
+ * accurately reflect which providers are actually configured.
+ * Uses the same pattern as /api/admin/routing.
+ */
+async function syncHealthCacheFromDB(): Promise<void> {
+  try {
+    const dbProviders = await prisma.aiProvider.findMany({
+      where: { enabled: true },
+      select: { providerKey: true, healthStatus: true, apiKey: true },
+    })
+    const configured = new Set<string>()
+    for (const p of dbProviders) {
+      if (p.apiKey) {
+        setProviderHealth(p.providerKey, p.healthStatus as ProviderHealthStatus)
+        configured.add(p.providerKey)
+      }
+    }
+    // Mark all unconfigured providers so getUsableModels() returns accurate data
+    const allKeys = new Set(getModelRegistry().map(m => m.provider))
+    for (const key of Array.from(allKeys)) {
+      if (!configured.has(key)) setProviderHealth(key, 'unconfigured')
+    }
+  } catch (err) {
+    // Log so operators can diagnose DB connectivity issues affecting model listings.
+    console.warn('[models] syncHealthCacheFromDB failed; health overlay may be stale:', err)
+  }
+}
 
 /**
  * GET /api/admin/models — returns model registry entries.
@@ -25,6 +58,9 @@ export async function GET(request: NextRequest) {
   if (!session.isLoggedIn) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+
+  // Sync provider health from DB so model listings reflect real configuration
+  await syncHealthCacheFromDB()
 
   const { searchParams } = new URL(request.url)
   const provider = searchParams.get('provider')
@@ -65,6 +101,7 @@ export async function GET(request: NextRequest) {
       display_name: m.model_name,
       roles: [m.primary_role, ...m.secondary_roles],
       health: m.health_status,
+      effectiveHealth: getProviderHealth(m.provider),
     })),
     total: models.length,
     registrySize: getModelRegistry().length,
