@@ -10,14 +10,6 @@ const schema = z.object({
   password: z.string().min(1),
 })
 
-/**
- * Pre-computed bcrypt hash of the default admin password.
- * Acts as a last-resort fallback when neither a DB admin user nor
- * ADMIN_PASSWORD env var is set. One-way hash — plaintext never in source.
- */
-const DEFAULT_ADMIN_HASH = '$2b$12$3rVo6ioZqjTDu.pe91UcmO9pp0RDZdQ/R/EdKtYZvdziNE.Z5VhOS'
-const DEFAULT_ADMIN_EMAIL = 'admin@amarktai.network'
-
 function secureEqual(a: string, b: string): boolean {
   const bufA = Buffer.from(a, 'utf8')
   const bufB = Buffer.from(b, 'utf8')
@@ -54,30 +46,37 @@ export async function POST(request: NextRequest) {
     }
 
     // ── 2. Env-var fallback (ADMIN_EMAIL + ADMIN_PASSWORD) ────────
+    // Only active when ADMIN_PASSWORD is explicitly set in the environment.
+    // If neither DB user nor ADMIN_PASSWORD exists, login is refused to
+    // force admin user creation through the onboarding wizard.
     if (!authenticated) {
-      const envEmail    = process.env.ADMIN_EMAIL    || DEFAULT_ADMIN_EMAIL
+      const envEmail    = process.env.ADMIN_EMAIL
       const envPassword = process.env.ADMIN_PASSWORD
-      if (envPassword && secureEqual(email, envEmail) && secureEqual(password, envPassword)) {
+      if (envEmail && envPassword && secureEqual(email, envEmail) && secureEqual(password, envPassword)) {
         authenticated = true
         adminId = 0
         adminEmail = envEmail
       }
     }
 
-    // ── 3. Bcrypt hash fallback (env email + default hash) ────────
     if (!authenticated) {
-      const envEmail = process.env.ADMIN_EMAIL || DEFAULT_ADMIN_EMAIL
-      if (secureEqual(email, envEmail)) {
-        const valid = await bcrypt.compare(password, DEFAULT_ADMIN_HASH)
-        if (valid) {
-          authenticated = true
-          adminId = 0
-          adminEmail = envEmail
-        }
-      }
-    }
+      // Check whether the system has ever been configured (has a DB admin user
+      // or ADMIN_PASSWORD set). If not, guide the operator to onboarding.
+      let hasDbUser = false
+      try {
+        hasDbUser = (await prisma.adminUser.count()) > 0
+      } catch { /* DB unreachable */ }
 
-    if (!authenticated) {
+      if (!hasDbUser && !process.env.ADMIN_PASSWORD) {
+        return NextResponse.json(
+          {
+            error: 'No admin account configured. Please set ADMIN_PASSWORD in your environment or create an admin user via the onboarding wizard.',
+            onboarding_required: true,
+          },
+          { status: 401 },
+        )
+      }
+
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
     }
 

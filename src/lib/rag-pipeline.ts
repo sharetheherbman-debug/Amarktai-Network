@@ -10,6 +10,7 @@
 
 import { searchVectors, upsertVectors, ensureCollection, isQdrantHealthy } from './vector-store'
 import { cacheGet, cacheSet } from './redis'
+import { getVaultApiKey } from './brain'
 import { randomUUID } from 'crypto'
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -111,7 +112,7 @@ export function chunkText(
  * Caches results in Redis to avoid redundant API calls.
  */
 export async function generateEmbedding(text: string): Promise<number[] | null> {
-  const apiKey = process.env.OPENAI_API_KEY
+  const apiKey = await getVaultApiKey('openai')
   if (!apiKey) return null
 
   // Check cache first
@@ -156,7 +157,7 @@ export async function generateEmbedding(text: string): Promise<number[] | null> 
  * Generate embeddings for multiple texts in batch.
  */
 export async function generateEmbeddings(texts: string[]): Promise<(number[] | null)[]> {
-  const apiKey = process.env.OPENAI_API_KEY
+  const apiKey = await getVaultApiKey('openai')
   if (!apiKey) return texts.map(() => null)
 
   try {
@@ -347,7 +348,7 @@ export interface RAGHealthStatus {
 
 export async function getRAGHealth(): Promise<RAGHealthStatus> {
   const vectorStoreHealthy = await isQdrantHealthy()
-  const embeddingAvailable = !!process.env.OPENAI_API_KEY
+  const embeddingAvailable = !!(await getVaultApiKey('openai'))
   return {
     vectorStoreHealthy,
     embeddingAvailable,

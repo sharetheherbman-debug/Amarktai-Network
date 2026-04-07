@@ -9,14 +9,6 @@ const schema = z.object({
   password: z.string().min(1),
 })
 
-/**
- * Pre-computed bcrypt hash of the default admin password.
- * This acts as a secure code-level fallback when neither a DB admin user
- * nor the ADMIN_PASSWORD env var is configured. The hash is one-way —
- * the plaintext is never stored in source.
- */
-const DEFAULT_ADMIN_HASH = '$2b$12$3rVo6ioZqjTDu.pe91UcmO9pp0RDZdQ/R/EdKtYZvdziNE.Z5VhOS'
-
 /** Timing-safe string comparison to prevent timing attacks */
 function secureEqual(a: string, b: string): boolean {
   if (a.length !== b.length) {
@@ -48,27 +40,17 @@ export async function POST(request: NextRequest) {
         }
       }
     } catch (dbError) {
-      // DB unavailable — fall through to env-var / hash check below
+      // DB unavailable — fall through to env-var check below
       console.warn('Quick access: DB lookup failed, falling back to env-var auth:', dbError)
     }
 
     // ── 2. Env-var fallback (ADMIN_PASSWORD) ─────────────────────
+    // Only active when ADMIN_PASSWORD is explicitly set in the environment.
+    // Without either a DB admin user or ADMIN_PASSWORD, quick-access is
+    // refused to force admin user creation through onboarding.
     if (!authenticated) {
       const envPassword = process.env.ADMIN_PASSWORD
       if (envPassword && secureEqual(password, envPassword)) {
-        authenticated = true
-        adminId = 0         // 0 is not a valid Prisma autoincrement ID — env-var auth sentinel
-        adminEmail = 'admin'
-      }
-    }
-
-    // ── 3. Hardcoded bcrypt hash fallback ─────────────────────────
-    // Ensures the command-bar admin flow works even without a DB admin
-    // user or ADMIN_PASSWORD env var. Uses bcrypt so the plaintext is
-    // never stored in source.
-    if (!authenticated) {
-      const valid = await bcrypt.compare(password, DEFAULT_ADMIN_HASH)
-      if (valid) {
         authenticated = true
         adminId = 0
         adminEmail = 'admin'
@@ -76,6 +58,22 @@ export async function POST(request: NextRequest) {
     }
 
     if (!authenticated) {
+      // Check whether the system has ever been configured
+      let hasDbUser = false
+      try {
+        hasDbUser = (await prisma.adminUser.count()) > 0
+      } catch { /* DB unreachable */ }
+
+      if (!hasDbUser && !process.env.ADMIN_PASSWORD) {
+        return NextResponse.json(
+          {
+            error: 'No admin account configured. Please set ADMIN_PASSWORD in your environment or create an admin user via the onboarding wizard.',
+            onboarding_required: true,
+          },
+          { status: 401 },
+        )
+      }
+
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
     }
 

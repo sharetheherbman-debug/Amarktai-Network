@@ -5,6 +5,9 @@
  * learned patterns, and contextual knowledge. Uses Qdrant for semantic
  * memory retrieval and Redis for session caching.
  *
+ * Persistence: Primary store is the MemoryEntry DB table (via Prisma).
+ * Qdrant is used for semantic vector search. Redis caches hot entries.
+ *
  * Truthful: Only stores and retrieves actual user interactions.
  * No fabricated memories.
  */
@@ -12,6 +15,7 @@
 import { searchVectors, upsertVectors, ensureCollection } from './vector-store'
 import { cacheGet, cacheSet, cacheDel } from './redis'
 import { generateEmbedding } from './rag-pipeline'
+import { prisma } from './prisma'
 import { randomUUID } from 'crypto'
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -64,10 +68,84 @@ export interface UserProfile {
   instructions: Memory[]
 }
 
-// ── In-Memory Storage (production uses Qdrant + Redis) ───────────────────────
+// ── DB Key Encoding ───────────────────────────────────────────────────────────
+//
+// Federated memories are stored in the existing MemoryEntry table using the
+// following field mapping:
+//   appSlug      → appSlug (the connected app)
+//   key          → `fed:{memoryId}` (unique per entry; enables O(1) lookup by id)
+//   memoryType   → MemoryType value (conversation/preference/fact/etc.)
+//   content      → JSON: { id, userId, content, metadata, accessCount, lastAccessedAt }
+//   importance   → importance (0–1)
+//   expiresAt    → expiresAt
+//
+// To list a user's memories for an app, we fetch all entries for the appSlug
+// and filter by userId inside the JSON content. This is bounded by
+// MAX_MEMORIES_PER_USER × apps, which is small enough for in-process filtering.
 
-const memoryStore = new Map<string, Memory>()
-const userMemoryIndex = new Map<string, Set<string>>() // userId:appSlug → Set<memoryId>
+function encodeKey(memId: string): string {
+  return `fed:${memId}`
+}
+
+/** Parse a MemoryEntry DB row back into a Memory object. Returns null on corrupt data. */
+function parseMemoryRow(row: {
+  key: string
+  memoryType: string
+  content: string
+  importance: number
+  expiresAt: Date | null
+}): Memory | null {
+  try {
+    const parsed = JSON.parse(row.content) as {
+      id: string
+      userId: string
+      content: string
+      metadata: Record<string, unknown>
+      accessCount: number
+      lastAccessedAt: string
+    }
+    return {
+      id: parsed.id,
+      userId: parsed.userId,
+      appSlug: '', // populated by caller from DB row
+      type: row.memoryType as MemoryType,
+      content: parsed.content,
+      importance: row.importance,
+      metadata: parsed.metadata ?? {},
+      createdAt: '', // populated from DB createdAt by caller
+      expiresAt: row.expiresAt ? row.expiresAt.toISOString() : undefined,
+      accessCount: parsed.accessCount ?? 0,
+      lastAccessedAt: parsed.lastAccessedAt ?? new Date().toISOString(),
+    }
+  } catch {
+    return null
+  }
+}
+
+/** Fetch all non-expired federated memory entries for a user+app from the DB. */
+async function fetchUserMemories(userId: string, appSlug: string): Promise<Memory[]> {
+  try {
+    const rows = await prisma.memoryEntry.findMany({
+      where: {
+        appSlug,
+        key: { startsWith: 'fed:' },
+        OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+      },
+    })
+    const memories: Memory[] = []
+    for (const row of rows) {
+      const m = parseMemoryRow(row)
+      if (!m) continue
+      if (m.userId !== userId) continue
+      m.appSlug = appSlug
+      m.createdAt = row.createdAt.toISOString()
+      memories.push(m)
+    }
+    return memories
+  } catch {
+    return []
+  }
+}
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -105,21 +183,35 @@ export async function storeMemory(input: {
     lastAccessedAt: now,
   }
 
-  // Store in memory map
-  memoryStore.set(id, memory)
-
-  // Update user index
-  const indexKey = `${input.userId}:${input.appSlug}`
-  if (!userMemoryIndex.has(indexKey)) {
-    userMemoryIndex.set(indexKey, new Set())
+  // Persist to DB
+  try {
+    await prisma.memoryEntry.create({
+      data: {
+        appSlug: input.appSlug,
+        key: encodeKey(id),
+        memoryType: input.type,
+        content: JSON.stringify({
+          id,
+          userId: input.userId,
+          content: input.content,
+          metadata: input.metadata ?? {},
+          accessCount: 0,
+          lastAccessedAt: now,
+        }),
+        importance: input.importance ?? DEFAULT_IMPORTANCE,
+        expiresAt: input.expiresAt ? new Date(input.expiresAt) : null,
+      },
+    })
+  } catch (err) {
+    console.warn('[federated-memory] DB persist failed:', err instanceof Error ? err.message : err)
   }
-  const index = userMemoryIndex.get(indexKey)!
-  index.add(id)
 
-  // Evict old memories if over limit
-  if (index.size > MAX_MEMORIES_PER_USER) {
-    await evictOldMemories(input.userId, input.appSlug)
-  }
+  // Evict old memories if over limit (async, non-blocking)
+  fetchUserMemories(input.userId, input.appSlug).then(async (existing) => {
+    if (existing.length > MAX_MEMORIES_PER_USER) {
+      await evictOldMemories(input.userId, input.appSlug)
+    }
+  }).catch(() => { /* non-critical */ })
 
   // Store in vector DB for semantic search
   const embedding = await generateEmbedding(input.content)
@@ -134,7 +226,7 @@ export async function storeMemory(input: {
           _type: 'federated_memory',
         },
       }])
-    } catch { /* Vector store unavailable — memory still in local store */ }
+    } catch { /* Vector store unavailable — memory still persisted to DB */ }
   }
 
   // Cache in Redis for fast session access
@@ -145,45 +237,67 @@ export async function storeMemory(input: {
 
 /** Retrieve a specific memory. */
 export async function getMemory(id: string): Promise<Memory | null> {
-  // Try cache first
+  // Try Redis cache first
   const cached = await cacheGet(`mem:${id}`)
   if (cached) {
     try {
-      const memory = JSON.parse(cached) as Memory
-      memory.accessCount++
-      memory.lastAccessedAt = new Date().toISOString()
-      memoryStore.set(id, memory)
-      return memory
+      return JSON.parse(cached) as Memory
     } catch { /* cache corruption */ }
   }
 
-  const memory = memoryStore.get(id)
-  if (!memory) return null
+  // Fetch from DB
+  try {
+    const row = await prisma.memoryEntry.findFirst({
+      where: { key: encodeKey(id) },
+    })
+    if (!row) return null
 
-  // Check expiry
-  if (memory.expiresAt && new Date(memory.expiresAt) < new Date()) {
-    memoryStore.delete(id)
-    await cacheDel(`mem:${id}`)
+    // Check expiry
+    if (row.expiresAt && row.expiresAt < new Date()) {
+      await prisma.memoryEntry.deleteMany({ where: { key: encodeKey(id) } })
+      await cacheDel(`mem:${id}`)
+      return null
+    }
+
+    const memory = parseMemoryRow(row)
+    if (!memory) return null
+    memory.appSlug = row.appSlug
+    memory.createdAt = row.createdAt.toISOString()
+    memory.accessCount++
+    memory.lastAccessedAt = new Date().toISOString()
+
+    // Update access count in DB (fire-and-forget)
+    prisma.memoryEntry.updateMany({
+      where: { key: encodeKey(id) },
+      data: {
+        content: JSON.stringify({
+          id: memory.id,
+          userId: memory.userId,
+          content: memory.content,
+          metadata: memory.metadata,
+          accessCount: memory.accessCount,
+          lastAccessedAt: memory.lastAccessedAt,
+        }),
+      },
+    }).catch(() => { /* non-critical */ })
+
+    // Refresh cache
+    await cacheSet(`mem:${id}`, JSON.stringify(memory), SESSION_CACHE_TTL)
+    return memory
+  } catch {
     return null
   }
-
-  memory.accessCount++
-  memory.lastAccessedAt = new Date().toISOString()
-  return memory
 }
 
 /** Delete a memory. */
 export async function deleteMemory(id: string): Promise<boolean> {
-  const memory = memoryStore.get(id)
-  if (!memory) return false
-
-  memoryStore.delete(id)
-  await cacheDel(`mem:${id}`)
-
-  const indexKey = `${memory.userId}:${memory.appSlug}`
-  userMemoryIndex.get(indexKey)?.delete(id)
-
-  return true
+  try {
+    const deleted = await prisma.memoryEntry.deleteMany({ where: { key: encodeKey(id) } })
+    await cacheDel(`mem:${id}`)
+    return deleted.count > 0
+  } catch {
+    return false
+  }
 }
 
 // ── Memory Search ────────────────────────────────────────────────────────────
@@ -226,25 +340,18 @@ export async function searchMemories(query: MemoryQuery): Promise<MemorySearchRe
         },
         relevanceScore: r.score,
       }))
-    } catch { /* Vector store unavailable — fall through to local search */ }
+    } catch { /* Vector store unavailable — fall through to DB keyword search */ }
   }
 
-  // Fallback: local keyword search
-  const indexKey = `${userId}:${appSlug}`
-  const memoryIds = userMemoryIndex.get(indexKey)
-  if (!memoryIds) return []
-
+  // Fallback: DB keyword search
+  const allMemories = await fetchUserMemories(userId, appSlug)
   const queryLower = queryText.toLowerCase()
   const results: MemorySearchResult[] = []
 
-  for (const memId of memoryIds) {
-    const memory = memoryStore.get(memId)
-    if (!memory) continue
+  for (const memory of allMemories) {
     if (types && !types.includes(memory.type)) continue
     if (memory.importance < minImportance) continue
-    if (memory.expiresAt && new Date(memory.expiresAt) < new Date()) continue
 
-    // Simple keyword relevance
     const contentLower = memory.content.toLowerCase()
     const words = queryLower.split(/\s+/)
     const matchCount = words.filter((w) => contentLower.includes(w)).length
@@ -263,9 +370,8 @@ export async function searchMemories(query: MemoryQuery): Promise<MemorySearchRe
 // ── User Profile ─────────────────────────────────────────────────────────────
 
 /** Get a user's memory profile. */
-export function getUserProfile(userId: string, appSlug: string): UserProfile {
-  const indexKey = `${userId}:${appSlug}`
-  const memoryIds = userMemoryIndex.get(indexKey) ?? new Set()
+export async function getUserProfile(userId: string, appSlug: string): Promise<UserProfile> {
+  const memories = await fetchUserMemories(userId, appSlug)
 
   const typeCounts: Record<MemoryType, number> = {
     conversation: 0, preference: 0, fact: 0, instruction: 0,
@@ -276,10 +382,7 @@ export function getUserProfile(userId: string, appSlug: string): UserProfile {
   let oldest: string | undefined
   let newest: string | undefined
 
-  for (const memId of memoryIds) {
-    const memory = memoryStore.get(memId)
-    if (!memory) continue
-
+  for (const memory of memories) {
     typeCounts[memory.type] = (typeCounts[memory.type] ?? 0) + 1
 
     if (memory.type === 'preference') preferences.push(memory)
@@ -292,7 +395,7 @@ export function getUserProfile(userId: string, appSlug: string): UserProfile {
   return {
     userId,
     appSlug,
-    totalMemories: memoryIds.size,
+    totalMemories: memories.length,
     memoryTypes: typeCounts,
     oldestMemory: oldest,
     newestMemory: newest,
@@ -322,7 +425,7 @@ export async function buildMemoryContext(
 
   if (memories.length === 0) return ''
 
-  const profile = getUserProfile(userId, appSlug)
+  const profile = await getUserProfile(userId, appSlug)
 
   const parts: string[] = []
   parts.push('--- User Memory Context ---')
@@ -358,30 +461,20 @@ export async function buildMemoryContext(
 // ── Eviction ─────────────────────────────────────────────────────────────────
 
 async function evictOldMemories(userId: string, appSlug: string): Promise<number> {
-  const indexKey = `${userId}:${appSlug}`
-  const memoryIds = userMemoryIndex.get(indexKey)
-  if (!memoryIds || memoryIds.size <= MAX_MEMORIES_PER_USER) return 0
+  const memories = await fetchUserMemories(userId, appSlug)
+  if (memories.length <= MAX_MEMORIES_PER_USER) return 0
 
-  // Get all memories, sort by importance * recency
-  const memories: Array<{ id: string; score: number }> = []
-  for (const memId of memoryIds) {
-    const memory = memoryStore.get(memId)
-    if (!memory) continue
-    const age = (Date.now() - new Date(memory.createdAt).getTime()) / (1000 * 60 * 60 * 24) // days
+  // Sort by importance * recency (ascending — lowest score evicted first)
+  const scored = memories.map((memory) => {
+    const age = (Date.now() - new Date(memory.createdAt).getTime()) / (1000 * 60 * 60 * 24)
     const recencyScore = 1 / (1 + age)
-    const score = memory.importance * 0.6 + recencyScore * 0.4
-    memories.push({ id: memId, score })
-  }
+    return { id: memory.id, score: memory.importance * 0.6 + recencyScore * 0.4 }
+  })
+  scored.sort((a, b) => a.score - b.score)
 
-  // Sort ascending (lowest score first = evict first)
-  memories.sort((a, b) => a.score - b.score)
-
-  // Evict lowest scoring until under limit
-  const toEvict = memories.slice(0, memories.length - MAX_MEMORIES_PER_USER)
+  const toEvict = scored.slice(0, scored.length - MAX_MEMORIES_PER_USER)
   for (const { id } of toEvict) {
-    memoryStore.delete(id)
-    memoryIds.delete(id)
-    await cacheDel(`mem:${id}`)
+    await deleteMemory(id)
   }
 
   return toEvict.length
