@@ -7,6 +7,7 @@
 #   - postgres  : PostgreSQL database (port 5432)
 #   - redis     : Redis for caching, rate limits, emotion memory (port 6379)
 #   - qdrant    : Qdrant vector DB for semantic/emotion memory (port 6333)
+#   - realtime  : WebSocket bridge for realtime voice (port 8765)
 
 services:
   # ── PostgreSQL ───────────────────────────────────────────────────────────────
@@ -72,6 +73,7 @@ services:
       QDRANT_URL: http://qdrant:6333
       SESSION_SECRET: ${SESSION_SECRET}
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      REALTIME_SERVICE_URL: http://realtime:8765
     depends_on:
       postgres:
         condition: service_healthy
@@ -83,6 +85,25 @@ services:
       test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/integrations/heartbeat || exit 1"]
       interval: 30s
       timeout: 10s
+      retries: 3
+
+  # ── Realtime Voice WebSocket Service ──────────────────────────────────────
+  realtime:
+    build:
+      context: .
+      dockerfile: services/realtime/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8765:8765"
+    environment:
+      PORT: "8765"
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-*}
+      SESSION_HMAC_SECRET: ${SESSION_HMAC_SECRET:-}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8765/health || exit 1"]
+      interval: 10s
+      timeout: 5s
       retries: 3
 
 volumes:

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getVaultApiKey } from '@/lib/brain';
+import { buildAffectiveVoiceConfig, type TTSProvider, type AffectiveVoiceConfig } from '@/lib/ssml-voice';
+import { detectEmotions } from '@/lib/emotion-engine';
 
 /**
  * POST /api/brain/tts — Text-to-Speech endpoint
@@ -9,6 +11,10 @@ import { getVaultApiKey } from '@/lib/brain';
  *   - OpenAI TTS (premium — tts-1 / tts-1-hd)
  *   - Gemini TTS (premium multimodal — gemini-2.5-flash-preview-tts)
  *   - HuggingFace TTS (free fallback — facebook/mms-tts-eng / facebook/mms-tts-fra)
+ *
+ * Emotion-aware voice: When `emotionAware` is true (default: false), the
+ * endpoint runs the Emotion Engine on the input text and adapts voice/speed
+ * based on detected emotion. For Gemini, SSML prosody markup is generated.
  *
  * API keys are resolved from the DB vault first, then env var fallback.
  *
@@ -20,6 +26,7 @@ import { getVaultApiKey } from '@/lib/brain';
  *   - model (string, optional) — TTS model (default: auto-selected by provider)
  *   - speed (number, optional) — playback speed 0.25–4.0 (default: 1.0)
  *   - provider (string, optional) — 'groq' | 'openai' | 'gemini' | 'huggingface' | 'auto' (default: 'auto')
+ *   - emotionAware (boolean, optional) — enable emotion-adaptive voice (default: false)
  *
  * Returns audio/mpeg stream on success.
  *
@@ -61,6 +68,7 @@ export async function POST(request: NextRequest) {
       model: requestedModel,
       speed = 1.0,
       provider: requestedProvider = 'auto',
+      emotionAware = false,
     } = body;
 
     if (!text || typeof text !== 'string' || text.trim().length === 0) {
@@ -142,10 +150,22 @@ export async function POST(request: NextRequest) {
       return map.default;
     };
 
+    // ── Emotion-aware voice adaptation ─────────────────────────────────
+    // When enabled, detects emotion in the text and adapts voice/speed/SSML.
+    let affective: AffectiveVoiceConfig | null = null;
+    if (emotionAware) {
+      try {
+        const emotionAnalysis = detectEmotions(text);
+        affective = buildAffectiveVoiceConfig(text, emotionAnalysis, provider as TTSProvider);
+      } catch {
+        // Emotion detection failed — proceed with default voice settings
+      }
+    }
+
     if (provider === 'groq') {
       // Groq TTS via OpenAI-compatible endpoint
       const model = requestedModel ?? (accent === 'arabic' ? 'playai-tts-arabic' : 'playai-tts');
-      const voice = resolveVoice('groq');
+      const voice = affective?.voiceOverride ?? resolveVoice('groq');
 
       const response = await fetch('https://api.groq.com/openai/v1/audio/speech', {
         method: 'POST',
@@ -183,8 +203,10 @@ export async function POST(request: NextRequest) {
 
     if (provider === 'gemini') {
       // Gemini TTS via Google Generative Language API
+      // Gemini supports SSML — use affective SSML when emotion-aware is enabled
       const model = requestedModel ?? 'gemini-2.5-flash-preview-tts';
-      const voice = resolveVoice('gemini');
+      const voice = affective?.voiceOverride ?? resolveVoice('gemini');
+      const inputText = affective?.ssmlSupported && affective?.ssml ? affective.ssml : text;
 
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
@@ -192,7 +214,7 @@ export async function POST(request: NextRequest) {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            contents: [{ parts: [{ text }] }],
+            contents: [{ parts: [{ text: inputText }] }],
             generationConfig: {
               responseModalities: ['AUDIO'],
               speechConfig: {
@@ -228,6 +250,11 @@ export async function POST(request: NextRequest) {
           'Content-Length': String(audioBuffer.byteLength),
           'X-Provider': 'gemini',
           'X-Model': model,
+          ...(affective ? {
+            'X-Emotion': affective.sourceEmotion,
+            'X-Emotion-Confidence': String(affective.confidence),
+            'X-SSML-Used': String(affective.ssmlSupported),
+          } : {}),
         },
       });
     }
@@ -268,8 +295,10 @@ export async function POST(request: NextRequest) {
     }
 
     // OpenAI TTS (premium path)
+    // OpenAI does not support SSML — use voice and speed overrides from affective config
     const model = requestedModel ?? 'tts-1';
-    const voice = resolveVoice('openai');
+    const voice = affective?.voiceOverride ?? resolveVoice('openai');
+    const effectiveSpeed = affective?.speedOverride ?? speed;
 
     const response = await fetch('https://api.openai.com/v1/audio/speech', {
       method: 'POST',
@@ -281,7 +310,7 @@ export async function POST(request: NextRequest) {
         model,
         input: text,
         voice,
-        speed,
+        speed: effectiveSpeed,
         response_format: 'mp3',
       }),
     });
@@ -302,6 +331,10 @@ export async function POST(request: NextRequest) {
         'Content-Length': String(audioBuffer.byteLength),
         'X-Provider': 'openai',
         'X-Model': model,
+        ...(affective ? {
+          'X-Emotion': affective.sourceEmotion,
+          'X-Emotion-Confidence': String(affective.confidence),
+        } : {}),
       },
     });
   } catch (err) {
