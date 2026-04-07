@@ -385,6 +385,67 @@ export async function callProvider(
         return { ok: true, output: data?.choices?.[0]?.message?.content ?? null, error: null, latencyMs: Date.now() - start, model: resolvedModel, providerKey }
       }
 
+      // ── Replicate ──────────────────────────────────────────────────────────
+      // Replicate uses an async prediction API. We create a prediction and poll
+      // until it resolves (up to the global timeout). The model is specified as
+      // an owner/name[:version] string, e.g. "meta/llama-2-70b-chat".
+      case 'replicate': {
+        const base = vault.baseUrl || 'https://api.replicate.com'
+        // Step 1: create prediction
+        const createRes = await fetch(`${base}/v1/models/${resolvedModel}/predictions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Token ${vault.apiKey}`,
+          },
+          body: JSON.stringify({ input: { prompt: message } }),
+          signal: AbortSignal.timeout(timeout),
+        })
+        if (!createRes.ok) {
+          const errBody = await createRes.json().catch(() => ({})) as { detail?: string }
+          return { ok: false, output: null, error: `Replicate HTTP ${createRes.status}: ${errBody?.detail ?? 'prediction create failed'}`, latencyMs: Date.now() - start, model: resolvedModel, providerKey }
+        }
+        const prediction = await createRes.json() as { id?: string; urls?: { get?: string }; status?: string; error?: string; output?: unknown }
+
+        if (!prediction.id) {
+          return { ok: false, output: null, error: 'Replicate: prediction ID missing', latencyMs: Date.now() - start, model: resolvedModel, providerKey }
+        }
+
+        // Step 2: poll until succeeded / failed (max 28 s to stay within timeout)
+        const pollUrl = prediction.urls?.get ?? `${base}/v1/predictions/${prediction.id}`
+        const POLL_INTERVAL_MS = 800
+        const POLL_DEADLINE = start + timeout - 2_000 // leave 2 s buffer
+
+        let pollResult = prediction
+        while (pollResult.status !== 'succeeded' && pollResult.status !== 'failed') {
+          if (Date.now() >= POLL_DEADLINE) {
+            return { ok: false, output: null, error: `Replicate: prediction timed out (id=${prediction.id})`, latencyMs: Date.now() - start, model: resolvedModel, providerKey }
+          }
+          await new Promise(r => setTimeout(r, POLL_INTERVAL_MS))
+          const pollRes = await fetch(pollUrl, {
+            headers: { Authorization: `Token ${vault.apiKey}` },
+          })
+          if (!pollRes.ok) break
+          pollResult = await pollRes.json() as typeof prediction
+        }
+
+        if (pollResult.status === 'failed' || pollResult.error) {
+          return { ok: false, output: null, error: `Replicate prediction failed: ${pollResult.error ?? 'unknown'}`, latencyMs: Date.now() - start, model: resolvedModel, providerKey }
+        }
+
+        // Output can be a string, an array of strings, or structured data
+        const raw = pollResult.output
+        let text: string | null = null
+        if (typeof raw === 'string') {
+          text = raw
+        } else if (Array.isArray(raw)) {
+          text = (raw as string[]).join('')
+        } else if (raw != null) {
+          text = JSON.stringify(raw)
+        }
+        return { ok: true, output: text, error: null, latencyMs: Date.now() - start, model: resolvedModel, providerKey }
+      }
+
       default:
         return { ok: false, output: null, error: `Unknown provider: "${providerKey}"`, latencyMs: Date.now() - start, model: resolvedModel, providerKey }
     }

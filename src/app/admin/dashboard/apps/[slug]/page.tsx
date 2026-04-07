@@ -261,7 +261,7 @@ export default function AppDetailPage() {
       >
         {tab === 'Overview' && <OverviewTab app={app} />}
         {tab === 'AI Stack' && <AIStackTab app={app} />}
-        {tab === 'Agents' && <AgentsTab appSlug={app.slug} appId={app.slug} appSecret={app.appSecret} />}
+        {tab === 'Agents' && <AgentsTab appSlug={app.slug} appId={app.slug} appSecret={app.appSecret} productId={app.id} onSecretRotated={(newSecret) => setApp(prev => prev ? { ...prev, appSecret: newSecret } : prev)} />}
         {tab === 'Metrics' && <MetricsTab appSlug={app.slug} />}
         {tab === 'Learning' && <AppLearningTab appSlug={app.slug} />}
         {tab === 'Strategy' && <StrategyTab appSlug={app.slug} appName={app.name} appCategory={app.category} />}
@@ -362,7 +362,13 @@ const READINESS_COLOR: Record<string, string> = {
   NOT_CONNECTED: 'text-slate-500',
 }
 
-function AgentsTab({ appSlug, appId, appSecret }: { appSlug: string; appId: string; appSecret: string }) {
+function AgentsTab({ appSlug, appId, appSecret, productId, onSecretRotated }: {
+  appSlug: string
+  appId: string
+  appSecret: string
+  productId: number
+  onSecretRotated?: (newSecret: string) => void
+}) {
   const [agents, setAgents] = useState<AgentEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -370,11 +376,41 @@ function AgentsTab({ appSlug, appId, appSecret }: { appSlug: string; appId: stri
   const [saved, setSaved] = useState(false)
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
   const [secretRevealed, setSecretRevealed] = useState(false)
+  const [rotatingSecret, setRotatingSecret] = useState(false)
+  const [localSecret, setLocalSecret] = useState(appSecret)
 
-  const maskedSecret = appSecret.length > 8
-    ? `${appSecret.slice(0, 4)}${'•'.repeat(Math.max(0, appSecret.length - 8))}${appSecret.slice(-4)}`
-    : '••••••••'
-  const displaySecret = secretRevealed ? appSecret : maskedSecret
+  const maskedSecret = localSecret.length > 8
+    ? `${localSecret.slice(0, 4)}${'•'.repeat(Math.max(0, localSecret.length - 8))}${localSecret.slice(-4)}`
+    : (localSecret.length > 0 ? '••••••••' : '(no secret — generate one below)')
+  const displaySecret = secretRevealed ? localSecret : maskedSecret
+
+  const rotateSecret = async () => {
+    if (!confirm('Generate a new app secret? Any app using the old secret will need to be updated.')) return
+    setRotatingSecret(true)
+    setError(null)
+    try {
+      // Generate a random 64-char hex secret client-side for immediate display
+      const array = new Uint8Array(32)
+      crypto.getRandomValues(array)
+      const newSecret = Array.from(array).map(b => b.toString(16).padStart(2, '0')).join('')
+      const res = await fetch(`/api/admin/products/${productId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ appSecret: newSecret }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error((err as { error?: string }).error ?? `HTTP ${res.status}`)
+      }
+      setLocalSecret(newSecret)
+      setSecretRevealed(true)
+      onSecretRotated?.(newSecret)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to rotate secret')
+    } finally {
+      setRotatingSecret(false)
+    }
+  }
 
   const loadAgents = useCallback(async () => {
     setLoading(true)
@@ -432,6 +468,49 @@ function AgentsTab({ appSlug, appId, appSecret }: { appSlug: string; appId: stri
 
   return (
     <div className="space-y-6">
+      {/* App Credentials — always visible */}
+      <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-5 space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-white">App Credentials</h3>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={rotateSecret}
+              disabled={rotatingSecret}
+              className="flex items-center gap-1 text-[10px] text-amber-400 hover:text-amber-300 transition-colors font-mono disabled:opacity-50"
+              title="Generate or rotate the app secret"
+            >
+              {rotatingSecret ? <Loader2 className="w-3 h-3 animate-spin" /> : '🔑'}
+              {rotatingSecret ? 'Generating…' : (localSecret ? 'Rotate Secret' : 'Generate Secret')}
+            </button>
+            <button
+              onClick={() => setSecretRevealed(r => !r)}
+              className="text-[10px] text-slate-500 hover:text-slate-300 transition-colors font-mono"
+            >
+              {secretRevealed ? '🙈 Hide' : '👁 Reveal'}
+            </button>
+          </div>
+        </div>
+        {!localSecret && (
+          <p className="text-xs text-amber-400">⚠ No app secret — click <strong>Generate Secret</strong> to create one before connecting apps to the Brain.</p>
+        )}
+        <div className="flex items-center gap-2 bg-black/20 rounded-lg px-3 py-2 font-mono">
+          <span className="text-[10px] text-slate-500 shrink-0">App ID</span>
+          <span className="text-xs text-blue-300 flex-1 truncate">{appId}</span>
+          <button onClick={() => { navigator.clipboard.writeText(appId); setCopiedKey('appId') }} className="text-slate-500 hover:text-white">
+            {copiedKey === 'appId' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+          </button>
+        </div>
+        <div className="flex items-center gap-2 bg-black/20 rounded-lg px-3 py-2 font-mono">
+          <span className="text-[10px] text-slate-500 shrink-0">Secret</span>
+          <span className="text-xs text-amber-200/80 flex-1 truncate">{displaySecret}</span>
+          {localSecret && (
+            <button onClick={() => { navigator.clipboard.writeText(localSecret); setCopiedKey('secret') }} className="text-slate-500 hover:text-white">
+              {copiedKey === 'secret' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -529,12 +608,23 @@ function AgentsTab({ appSlug, appId, appSecret }: { appSlug: string; appId: stri
                 <Globe className="w-4 h-4 text-emerald-400" />
                 <h4 className="text-sm font-semibold text-white">Live Endpoint URLs</h4>
                 <span className="text-[10px] text-emerald-400 font-mono bg-emerald-500/10 px-1.5 py-0.5 rounded">SAVE to activate</span>
-                <button
-                  onClick={() => setSecretRevealed(r => !r)}
-                  className="ml-auto text-[10px] text-slate-500 hover:text-slate-300 transition-colors font-mono"
-                >
-                  {secretRevealed ? '🙈 Hide secret' : '👁 Reveal secret'}
-                </button>
+                <div className="ml-auto flex items-center gap-2">
+                  <button
+                    onClick={rotateSecret}
+                    disabled={rotatingSecret}
+                    className="flex items-center gap-1 text-[10px] text-amber-400 hover:text-amber-300 transition-colors font-mono disabled:opacity-50"
+                    title="Generate a new app secret"
+                  >
+                    {rotatingSecret ? <Loader2 className="w-3 h-3 animate-spin" /> : '🔑'}
+                    {rotatingSecret ? 'Generating…' : (localSecret ? 'Rotate Secret' : 'Generate Secret')}
+                  </button>
+                  <button
+                    onClick={() => setSecretRevealed(r => !r)}
+                    className="text-[10px] text-slate-500 hover:text-slate-300 transition-colors font-mono"
+                  >
+                    {secretRevealed ? '🙈 Hide secret' : '👁 Reveal secret'}
+                  </button>
+                </div>
               </div>
               <p className="text-xs text-slate-400">Use these URLs in your app to send requests through the Brain Gateway. All requests are authenticated with your App ID and Secret.</p>
 
@@ -549,12 +639,12 @@ function AgentsTab({ appSlug, appId, appSecret }: { appSlug: string; appId: stri
                 }, null, 2)
                 const realSnippet = JSON.stringify({
                   appId: appId,
-                  appSecret: appSecret,
+                  appSecret: localSecret,
                   taskType: agentTaskType,
                   message: '<user message here>',
                 }, null, 2)
                 const curlCmd = `curl -X POST ${endpointUrl} \\\n  -H "Content-Type: application/json" \\\n  -d '{"appId":"${appId}","appSecret":"${displaySecret}","taskType":"${agentTaskType}","message":"Hello"}'`
-                const realCurlCmd = `curl -X POST ${endpointUrl} \\\n  -H "Content-Type: application/json" \\\n  -d '{"appId":"${appId}","appSecret":"${appSecret}","taskType":"${agentTaskType}","message":"Hello"}'`
+                const realCurlCmd = `curl -X POST ${endpointUrl} \\\n  -H "Content-Type: application/json" \\\n  -d '{"appId":"${appId}","appSecret":"${localSecret}","taskType":"${agentTaskType}","message":"Hello"}'`
                 return (
                   <div key={agent.type} className="space-y-2">
                     <p className="text-[10px] uppercase tracking-wider text-slate-500 font-mono">{agent.name} — {agent.type}</p>
