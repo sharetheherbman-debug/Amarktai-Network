@@ -720,12 +720,17 @@ function AIStackTab({ app }: { app: AppRecord }) {
       .then(data => {
         if (data?.profile) {
           const p = data.profile
+          const safeParse = (val: unknown): string[] => {
+            if (Array.isArray(val)) return val
+            if (typeof val !== 'string') return []
+            try { const parsed = JSON.parse(val); return Array.isArray(parsed) ? parsed : [] } catch { return [] }
+          }
           setProfile({
             routingStrategy: p.routingStrategy ?? 'balanced',
             basePersonality: p.basePersonality ?? '',
             emotionContextWindow: p.emotionContextWindow ?? 0,
-            allowedProviders: JSON.parse(p.allowedProviders ?? '[]'),
-            preferredModels: JSON.parse(p.preferredModels ?? '[]'),
+            allowedProviders: safeParse(p.allowedProviders),
+            preferredModels: safeParse(p.preferredModels),
             costMode: p.costMode ?? 'balanced',
             budgetSensitivity: p.budgetSensitivity ?? 'medium',
             latencySensitivity: p.latencySensitivity ?? 'medium',
