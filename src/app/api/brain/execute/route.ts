@@ -40,7 +40,7 @@ function toAdminTestBody(raw: Record<string, unknown>): Record<string, unknown> 
       ? String(raw.input ?? '')
       : String(raw.task ?? raw.message ?? ''),
     taskType: hasInput
-      ? String(raw.mode ?? raw.task ?? 'chat')
+      ? String(raw.task ?? raw.mode ?? 'chat')
       : String(raw.mode ?? raw.taskType ?? 'chat'),
     providerKey: raw.provider_override ?? raw.providerKey ?? undefined,
     modelId: raw.model_override ?? raw.modelId ?? undefined,
@@ -60,7 +60,7 @@ function normaliseToStandard(raw: Record<string, unknown>): Record<string, unkno
     appId: raw.app_id ?? raw.appId,
     appSecret: raw.app_secret ?? raw.appSecret,
     taskType: hasInput
-      ? String(raw.mode ?? raw.task ?? raw.taskType ?? 'chat')
+      ? String(raw.task ?? raw.mode ?? raw.taskType ?? 'chat')
       : String(raw.mode ?? raw.taskType ?? 'chat'),
     message: hasInput
       ? String(raw.input ?? '')
