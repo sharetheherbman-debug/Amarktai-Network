@@ -20,6 +20,7 @@
  */
 
 import { prisma } from '@/lib/prisma'
+import { getVaultApiKey } from '@/lib/brain'
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -325,7 +326,7 @@ export async function scanContentWithModeration(
   text: string,
   appSlug?: string,
 ): Promise<ContentFilterResult> {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = await getVaultApiKey('openai');
 
   // Try OpenAI Moderation API first
   if (apiKey) {

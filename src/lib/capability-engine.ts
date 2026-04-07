@@ -514,7 +514,7 @@ const BACKEND_ROUTE_EXISTS: Record<CapabilityClass, boolean> = {
   agent_planning:            true,   // /api/brain/request (agent_chain)
   multimodal_understanding:  true,   // /api/brain/request (multimodal_chain)
   image_generation:          true,   // /api/brain/request (DALL-E / FLUX)
-  image_editing:             true,   // /api/brain/request (DALL-E)
+  image_editing:             false,  // NOT IMPLEMENTED: no inpaint/mask backend; image generation only via /api/brain/image
   video_planning:            true,   // /api/brain/request (AI text — always possible via chat models)
   video_generation:          true,   // /api/brain/video-generate (async job pipeline — Replicate / HuggingFace)
   voice_input:               true,   // /api/brain/stt + /api/voice/stt (Groq Whisper / OpenAI Whisper / Gemini Live / HuggingFace Whisper)
