@@ -13,6 +13,7 @@ import { logRouteOutcome } from '@/lib/learning-engine'
 import { scanContent, blockedExplanation, loadAppSafetyConfigFromDB } from '@/lib/content-filter'
 import { getBudgetSummary } from '@/lib/budget-tracker'
 import { runEmotionPipeline, setAppContextWindow, type PersonalityType } from '@/lib/emotion-engine'
+import { runModerationPipeline } from '@/lib/moderation-pipeline'
 import { prisma } from '@/lib/prisma'
 
 // ── Request schema ────────────────────────────────────────────────────────────
@@ -247,34 +248,73 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // ── Content filter — scan output for policy violations ──────────────
+  // ── Content filter — scan output with full moderation pipeline ────
+  // Runs OpenAI Moderation (primary) → keyword fallback → guardrails,
+  // and records audit trail entry for every scan.
   if (success && result.output) {
-    const filterResult = scanContent(result.output, app.slug)
-    if (filterResult.flagged) {
-      return NextResponse.json(
-        {
-          success: false,
-          traceId,
-          app: { id: app.id, name: app.name, slug: app.slug },
-          routedProvider: result.routedProvider,
-          routedModel: result.routedModel,
-          taskType: body.taskType,
-          executionMode: result.executionMode,
-          confidenceScore: result.confidenceScore,
-          validationUsed: result.validationUsed,
-          consensusUsed: result.consensusUsed,
-          output: null,
-          warnings: [],
-          errors: ['Content blocked by safety filter'],
-          categories: filterResult.categories,
-          message: blockedExplanation(filterResult.categories),
-          latencyMs,
-          memoryUsed,
-          fallbackUsed: result.fallbackUsed,
-          timestamp: new Date().toISOString(),
-        },
-        { status: 403 },
-      )
+    try {
+      const outputModeration = await runModerationPipeline(result.output, 'output', {
+        traceId,
+        appSlug: app.slug,
+        actorId: app.slug,
+        actorType: 'app',
+      })
+      if (outputModeration.blocked) {
+        return NextResponse.json(
+          {
+            success: false,
+            traceId,
+            app: { id: app.id, name: app.name, slug: app.slug },
+            routedProvider: result.routedProvider,
+            routedModel: result.routedModel,
+            taskType: body.taskType,
+            executionMode: result.executionMode,
+            confidenceScore: result.confidenceScore,
+            validationUsed: result.validationUsed,
+            consensusUsed: result.consensusUsed,
+            output: null,
+            warnings: [],
+            errors: ['Content blocked by safety filter'],
+            categories: outputModeration.contentFilter.categories,
+            message: blockedExplanation(outputModeration.contentFilter.categories),
+            latencyMs,
+            memoryUsed,
+            fallbackUsed: result.fallbackUsed,
+            timestamp: new Date().toISOString(),
+            auditEntryId: outputModeration.auditEntryId,
+          },
+          { status: 403 },
+        )
+      }
+    } catch {
+      // Moderation pipeline failed — fall back to synchronous keyword scan
+      const filterResult = scanContent(result.output, app.slug)
+      if (filterResult.flagged) {
+        return NextResponse.json(
+          {
+            success: false,
+            traceId,
+            app: { id: app.id, name: app.name, slug: app.slug },
+            routedProvider: result.routedProvider,
+            routedModel: result.routedModel,
+            taskType: body.taskType,
+            executionMode: result.executionMode,
+            confidenceScore: result.confidenceScore,
+            validationUsed: result.validationUsed,
+            consensusUsed: result.consensusUsed,
+            output: null,
+            warnings: [],
+            errors: ['Content blocked by safety filter'],
+            categories: filterResult.categories,
+            message: blockedExplanation(filterResult.categories),
+            latencyMs,
+            memoryUsed,
+            fallbackUsed: result.fallbackUsed,
+            timestamp: new Date().toISOString(),
+          },
+          { status: 403 },
+        )
+      }
     }
   }
 
