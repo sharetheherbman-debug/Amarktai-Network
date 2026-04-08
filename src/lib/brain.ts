@@ -109,6 +109,10 @@ export async function authenticateApp(appId: string, appSecret: string): Promise
     return { ok: false, statusCode: 409, error: 'AI is not enabled for this app' }
   }
 
+  if (!product.connectedToBrain) {
+    return { ok: false, statusCode: 409, error: 'App is not connected to the Brain — enable Brain connection in app settings' }
+  }
+
   // Return app without exposing the secret
   const { appSecret: _omit, ...safeApp } = product
   return { ok: true, statusCode: 200, app: safeApp }
