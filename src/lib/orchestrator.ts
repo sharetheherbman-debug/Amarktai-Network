@@ -549,7 +549,7 @@ export async function orchestrate(opts: {
   //     (e.g. dall-e-3 for image tasks), use IT instead of decideExecution's internally-
   //     routed model (which has no modality signal and selects a chat model).
   //     This fixes the bug where image tasks received text output.
-  if (routingDecision.primaryModel && decision.primaryProvider) {
+  if (routingDecision.primaryModel) {
     decision.primaryProvider = {
       providerKey: routingDecision.primaryModel.provider,
       model: routingDecision.primaryModel.model_id,
@@ -562,19 +562,19 @@ export async function orchestrate(opts: {
 
   // 5b. Apply provider/model override from app metadata (Phase 2).
   //     Validate the override is actually a configured, usable provider before applying.
-  if (providerOverride && decision.primaryProvider) {
+  if (providerOverride) {
     const overrideUsable = isProviderUsable(providerOverride)
     if (overrideUsable) {
       // Resolve model: use explicit modelOverride if provided and valid,
       // otherwise fall back to the DB-loaded default for that provider,
-      // otherwise keep the current primary model.
+      // otherwise keep the current primary model (if any).
       const resolvedModel =
         (modelOverride && getModelById(providerOverride, modelOverride)?.model_id) ||
         filteredAvailable.find(p => p.providerKey === providerOverride)?.model ||
-        decision.primaryProvider.model
+        decision.primaryProvider?.model
       decision.primaryProvider = {
         providerKey: providerOverride,
-        model: resolvedModel,
+        model: resolvedModel ?? providerOverride,
         healthStatus: 'configured',
         isHealthy: true,
       }

@@ -103,7 +103,7 @@ export function decryptVaultKey(stored: string): string | null {
 
   try {
     const blob = Buffer.from(stored.slice(PREFIX.length), 'base64')
-    if (blob.length < IV_LEN + TAG_LEN + 1) return null // too short
+    if (blob.length < IV_LEN + TAG_LEN + MIN_CIPHERTEXT_LEN) return null
     const iv = blob.subarray(0, IV_LEN)
     const tag = blob.subarray(blob.length - TAG_LEN)
     const ct = blob.subarray(IV_LEN, blob.length - TAG_LEN)
@@ -117,3 +117,4 @@ export function decryptVaultKey(stored: string): string | null {
 }
 
 let _warnedNoKey = false
+const MIN_CIPHERTEXT_LEN = 1 // at least 1 byte of ciphertext required
