@@ -565,9 +565,11 @@ export async function orchestrate(opts: {
   if (providerOverride && decision.primaryProvider) {
     const overrideUsable = isProviderUsable(providerOverride)
     if (overrideUsable) {
+      // Resolve model: use explicit modelOverride if provided and valid,
+      // otherwise fall back to the DB-loaded default for that provider,
+      // otherwise keep the current primary model.
       const resolvedModel =
-        modelOverride ||
-        (getModelById(providerOverride, modelOverride ?? '')?.model_id) ||
+        (modelOverride && getModelById(providerOverride, modelOverride)?.model_id) ||
         filteredAvailable.find(p => p.providerKey === providerOverride)?.model ||
         decision.primaryProvider.model
       decision.primaryProvider = {

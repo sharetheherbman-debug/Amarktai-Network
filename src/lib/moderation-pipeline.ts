@@ -125,8 +125,9 @@ export async function runModerationPipeline(
   // allowing suggestive language. ALWAYS_BLOCKED categories are still enforced
   // via the content filter (contentFilter.flagged checks ALWAYS_BLOCKED only).
   const appSafety = context.appSlug ? getAppSafetyConfig(context.appSlug) : null
-  const suggestiveModeActive = direction === 'output' &&
-    appSafety !== null &&
+  const suggestiveModeActive =
+    direction === 'output' &&
+    appSafety != null &&
     !appSafety.safeMode &&
     appSafety.suggestiveMode
 
