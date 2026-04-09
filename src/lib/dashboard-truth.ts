@@ -98,6 +98,7 @@ function collectCapabilities(providerKey: string): string[] {
     if (m.supports_stt) caps.add('voice_stt');
     if (m.supports_tts) caps.add('voice_tts');
     if (m.supports_voice_interaction) caps.add('realtime_voice');
+    if ((m as typeof m & { supports_moderation?: boolean }).supports_moderation) caps.add('moderation');
     if (m.supports_embeddings) caps.add('embeddings');
     if (m.supports_reranking) caps.add('reranking');
     if (m.supports_video_planning) caps.add('video_planning');
@@ -158,7 +159,7 @@ export async function getProviderTruth(): Promise<ProviderTruth[]> {
       providerKey: cp.key,
       displayName: cp.displayName,
       state,
-      isActive: state === 'HEALTHY',
+      isActive: state === 'HEALTHY' || state === 'CONFIGURED',
       healthStatus,
       healthMessage,
       lastCheckedAt: db?.lastCheckedAt?.toISOString() ?? null,
@@ -220,6 +221,7 @@ const CAPABILITY_META: Record<
   translation: { displayName: 'Translation', category: 'text', routeExists: true },
   summarization: { displayName: 'Summarization', category: 'text', routeExists: true },
   code_review: { displayName: 'Code Review', category: 'code', routeExists: true },
+  moderation: { displayName: 'Content Moderation', category: 'safety', routeExists: true },
 };
 
 /** Capabilities gated behind safety settings (suggestive_*). */
@@ -267,6 +269,7 @@ const CAP_TO_MODEL_FLAG: Record<string, string> = {
   suggestive_image_generation: 'supports_image_generation',
   suggestive_video_planning: 'supports_video_planning',
   suggestive_video_generation: 'supports_video_generation',
+  moderation: 'supports_moderation',
 };
 
 /**

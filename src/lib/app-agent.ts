@@ -491,8 +491,8 @@ export async function processAppAgentRequest(
     appliedRules.push(`religious:${agent.religiousMode}`)
   }
 
-  // 3. Determine budget-aware model selection hints (stored for future use)
-  const _budgetHint = resolveBudgetHint(agent.budgetMode, request.taskType)
+  // 3. Budget mode is now passed directly to orchestrator for real enforcement
+  const budgetMode = agent.budgetMode as 'low_cost' | 'balanced' | 'best_quality'
 
   // 4. Build the augmented message with system context
   const augmentedMessage = `[System Instructions]\n${systemPrompt}\n\n[User Message]\n${request.message}`
@@ -506,6 +506,7 @@ export async function processAppAgentRequest(
     appCategory: agent.appType,
     taskType: request.taskType,
     message: augmentedMessage,
+    budgetMode,
   })
 
   return {

@@ -164,6 +164,7 @@ export async function POST(request: NextRequest) {
           'No image generation provider is configured. ' +
           'Add an API key via Admin → AI Providers. Supported: OpenAI (DALL-E 3), Together AI (FLUX).',
         providers_checked: ['openai', 'together'],
+        capability: 'image_generation',
       },
       { status: 503 },
     );

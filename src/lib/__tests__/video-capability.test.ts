@@ -189,10 +189,11 @@ describe('Planning vs Generation Are Not Merged', () => {
     expect(map.video_generation.anyCapabilityFlag).not.toContain('supports_video_planning')
   })
 
-  it('video_planning accepts supports_chat as a qualifying flag', () => {
+  it('video_planning requires only supports_video_planning (no chat fallback)', () => {
     const map = CAPABILITY_MAP as Record<string, { anyCapabilityFlag?: string[] }>
-    expect(map.video_planning.anyCapabilityFlag).toContain('supports_chat')
     expect(map.video_planning.anyCapabilityFlag).toContain('supports_video_planning')
+    // video_planning must NOT fall back to chat models — strict capability separation
+    expect(map.video_planning.anyCapabilityFlag).not.toContain('supports_chat')
   })
 
   it('detailed status shows both planning and generation have routes', () => {

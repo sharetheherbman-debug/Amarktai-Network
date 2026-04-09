@@ -214,7 +214,7 @@ async function checkCheapRoute(): Promise<AuditCheck> {
     let routingWorks = false
     let routingDetail = ''
     try {
-      const decision = routeRequest({
+      const decision = await routeRequest({
         appSlug: '__readiness_audit__',
         appCategory: 'general',
         taskType: 'chat',
@@ -564,7 +564,7 @@ async function checkRoutingWired(): Promise<AuditCheck> {
 function checkExecutionModes(): AuditCheck {
   try {
     // Test retrieval_chain
-    const retrievalDecision = routeRequest({
+    const retrievalDecision = await routeRequest({
       appSlug: 'amarktai-network',
       appCategory: 'generic',
       taskType: 'recall',
@@ -575,7 +575,7 @@ function checkExecutionModes(): AuditCheck {
     })
 
     // Test multimodal_chain
-    const multimodalDecision = routeRequest({
+    const multimodalDecision = await routeRequest({
       appSlug: 'amarktai-marketing',
       appCategory: 'creative',
       taskType: 'campaign',

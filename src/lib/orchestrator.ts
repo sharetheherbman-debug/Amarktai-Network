@@ -60,6 +60,18 @@ const CONSENSUS_LENGTH_DIFF_THRESHOLD = 200
 /** Task types that require image-generation routing (evaluated once at module load). */
 const IMAGE_TASK_TYPES_SET = new Set(['image_generation', 'image', 'image_gen', 'generate_image', 'create_image'])
 
+/** Task types that require voice/audio routing. */
+const VOICE_TASK_TYPES_SET = new Set(['tts', 'text_to_speech', 'stt', 'speech_to_text', 'voice', 'voice_input', 'voice_output', 'realtime_voice'])
+
+/** Task types that require embeddings routing. */
+const EMBEDDINGS_TASK_TYPES_SET = new Set(['embeddings', 'embedding', 'embed', 'vector'])
+
+/** Task types that require moderation routing. */
+const MODERATION_TASK_TYPES_SET = new Set(['moderation', 'moderate', 'content_moderation'])
+
+/** Task types that require video routing. */
+const VIDEO_TASK_TYPES_SET = new Set(['video', 'video_generation', 'video_gen', 'video_planning'])
+
 // ── Classification ────────────────────────────────────────────────────────────
 
 export type TaskComplexity = 'simple' | 'moderate' | 'complex'
@@ -330,7 +342,7 @@ export async function decideExecution(
     requiresRetrieval: false,
     requiresMultimodal: false,
   }
-  const routingDecision = routeRequest(routingCtx)
+  const routingDecision = await routeRequest(routingCtx)
 
   if (routingDecision.primaryModel) {
     // Convert routing-engine's ModelEntry to AvailableProvider format
@@ -476,9 +488,11 @@ export async function orchestrate(opts: {
   providerOverride?: string
   /** Optional model ID to use when providerOverride is set. */
   modelOverride?: string
+  /** Budget mode from app agent: 'low_cost' | 'balanced' | 'best_quality'. Controls maxCostTier. */
+  budgetMode?: 'low_cost' | 'balanced' | 'best_quality'
 }): Promise<OrchestrationResult> {
   const start = Date.now()
-  const { appSlug, appCategory, taskType, message, providerOverride, modelOverride } = opts
+  const { appSlug, appCategory, taskType, message, providerOverride, modelOverride, budgetMode } = opts
 
   // Hydrate smart-router state from Redis on first request (fire-and-forget)
   loadSmartRouterState().catch(() => {})
@@ -527,6 +541,28 @@ export async function orchestrate(opts: {
   const isRetrieval = detectRetrieval(taskType, message)
   const normalizedTask = (taskType ?? '').toLowerCase()
   const isImageTask = IMAGE_TASK_TYPES_SET.has(normalizedTask)
+  const isVoiceTask = VOICE_TASK_TYPES_SET.has(normalizedTask)
+  const isEmbeddingsTask = EMBEDDINGS_TASK_TYPES_SET.has(normalizedTask)
+  const isModerationTask = MODERATION_TASK_TYPES_SET.has(normalizedTask)
+  const isVideoTask = VIDEO_TASK_TYPES_SET.has(normalizedTask)
+  /** True for any non-text task that returns binary/URL output that can't be text-cached. */
+  const isNonTextTask = isImageTask || isVoiceTask || isEmbeddingsTask || isVideoTask
+
+  // Resolve required modality from task type — strict, no cross-capability fallback
+  let detectedModality: 'text' | 'image' | 'video' | 'voice' | 'embeddings' | 'moderation' = 'text'
+  if (isImageTask) detectedModality = 'image'
+  else if (isVoiceTask) detectedModality = 'voice'
+  else if (isEmbeddingsTask) detectedModality = 'embeddings'
+  else if (isModerationTask) detectedModality = 'moderation'
+  else if (isVideoTask) detectedModality = 'video'
+
+  // Resolve maxCostTier from budget mode
+  const BUDGET_TO_COST_TIER: Record<string, string> = {
+    low_cost: 'low',
+    balanced: 'medium',
+    best_quality: 'premium',
+  }
+  const resolvedMaxCostTier = budgetMode ? BUDGET_TO_COST_TIER[budgetMode] : undefined
 
   const routingCtx = {
     appSlug: appSlug ?? 'unknown',
@@ -536,11 +572,12 @@ export async function orchestrate(opts: {
     message,
     requiresRetrieval: isRetrieval,
     requiresMultimodal: isMultimodal,
-    ...(isImageTask ? { requiredModality: 'image' as const } : {}),
+    ...(detectedModality !== 'text' ? { requiredModality: detectedModality } : {}),
+    ...(resolvedMaxCostTier ? { maxCostTier: resolvedMaxCostTier } : {}),
   }
 
   // 4. Route via the routing-engine (now health-aware — only configured providers considered)
-  const routingDecision = routeRequest(routingCtx)
+  const routingDecision = await routeRequest(routingCtx)
 
   // 5. Build decision from routing-engine result (also uses health-aware cache internally)
   const decision = await decideExecution(classification, filteredAvailable, appSlug)
@@ -732,9 +769,9 @@ export async function orchestrate(opts: {
     case 'direct':
     case 'specialist': {
       // ── Semantic cache lookup (text-only tasks) ──────────────────────
-      // Skip cache for image/TTS/STT tasks — those return binary/URL outputs
+      // Skip cache for image/TTS/STT/video/embeddings tasks — those return binary/URL outputs
       // that can't be meaningfully cached by text similarity.
-      if (!isImageTask && appSlug) {
+      if (!isNonTextTask && appSlug) {
         try {
           const cacheHit = await lookupCache(message, appSlug, taskType)
           if (cacheHit.hit && cacheHit.entry) {
@@ -802,7 +839,7 @@ export async function orchestrate(opts: {
               warnings,
             })
             // Cache successful fallback response
-            if (!isImageTask && appSlug && fallback.output) {
+            if (!isNonTextTask && appSlug && fallback.output) {
               storeInCache(message, fallback.output, {
                 provider: fallback.providerKey ?? decision.secondaryProvider.providerKey,
                 model: fallback.model ?? decision.secondaryProvider.model,
@@ -831,7 +868,7 @@ export async function orchestrate(opts: {
       }
 
       // Cache successful primary response
-      if (result.ok && !isImageTask && appSlug && result.output) {
+      if (result.ok && !isNonTextTask && appSlug && result.output) {
         storeInCache(message, result.output, {
           provider: result.providerKey ?? decision.primaryProvider.providerKey,
           model: result.model ?? decision.primaryProvider.model,
