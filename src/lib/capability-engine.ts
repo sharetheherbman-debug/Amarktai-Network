@@ -138,7 +138,7 @@ const CAPABILITY_MAP: Record<CapabilityClass, CapabilityRequirement> = {
     suggestedProviders: ['openai', 'huggingface'],
   },
   video_planning: {
-    anyCapabilityFlag: ['supports_video_planning', 'supports_chat'],
+    anyCapabilityFlag: ['supports_video_planning'],
     label: 'video planning / storyboarding',
     suggestedProviders: ['gemini', 'openai', 'deepseek'],
   },
@@ -170,7 +170,7 @@ const CAPABILITY_MAP: Record<CapabilityClass, CapabilityRequirement> = {
     suggestedProviders: ['huggingface'],
   },
   moderation: {
-    anyCapabilityFlag: ['supports_chat'],
+    anyCapabilityFlag: ['supports_moderation'],
     label: 'content moderation',
     suggestedProviders: ['openai'],
   },
@@ -200,7 +200,7 @@ const CAPABILITY_MAP: Record<CapabilityClass, CapabilityRequirement> = {
     suggestedProviders: ['openai', 'huggingface'],
   },
   suggestive_video_planning: {
-    anyCapabilityFlag: ['supports_video_planning', 'supports_chat'],
+    anyCapabilityFlag: ['supports_video_planning'],
     label: 'suggestive video planning (non-explicit)',
     suggestedProviders: ['openai', 'gemini'],
   },

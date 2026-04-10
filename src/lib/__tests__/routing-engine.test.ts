@@ -43,8 +43,8 @@ describe('Routing Engine', () => {
     seedHealthCache()
   })
   describe('routeRequest', () => {
-    it('returns a valid routing decision', () => {
-      const decision = routeRequest(makeContext())
+    it('returns a valid routing decision', async () => {
+      const decision = await routeRequest(makeContext())
       expect(decision).toBeDefined()
       expect(decision.mode).toBeTruthy()
       expect(decision.reason).toBeTruthy()
@@ -52,13 +52,13 @@ describe('Routing Engine', () => {
       expect(Array.isArray(decision.fallbackModels)).toBe(true)
     })
 
-    it('routes simple tasks to direct mode', () => {
-      const decision = routeRequest(makeContext({ taskComplexity: 'simple' }))
+    it('routes simple tasks to direct mode', async () => {
+      const decision = await routeRequest(makeContext({ taskComplexity: 'simple' }))
       expect(decision.mode).toBe('direct')
     })
 
-    it('routes complex tasks appropriately', () => {
-      const decision = routeRequest(makeContext({
+    it('routes complex tasks appropriately', async () => {
+      const decision = await routeRequest(makeContext({
         taskComplexity: 'complex',
         taskType: 'analysis',
         appCategory: 'generic',
@@ -68,8 +68,8 @@ describe('Routing Engine', () => {
       expect(['review', 'consensus', 'premium_escalation', 'specialist', 'direct']).toContain(decision.mode)
     })
 
-    it('selects premium escalation for complex financial tasks', () => {
-      const decision = routeRequest(makeContext({
+    it('selects premium escalation for complex financial tasks', async () => {
+      const decision = await routeRequest(makeContext({
         appSlug: 'amarktai-crypto',
         appCategory: 'finance',
         taskComplexity: 'complex',
@@ -78,8 +78,8 @@ describe('Routing Engine', () => {
       expect(['premium_escalation', 'consensus', 'review', 'direct']).toContain(decision.mode)
     })
 
-    it('routes multimodal requests to multimodal_chain', () => {
-      const decision = routeRequest(makeContext({
+    it('routes multimodal requests to multimodal_chain', async () => {
+      const decision = await routeRequest(makeContext({
         requiresMultimodal: true,
         appSlug: 'amarktai-marketing',
         appCategory: 'marketing',
@@ -87,15 +87,15 @@ describe('Routing Engine', () => {
       expect(decision.mode).toBe('multimodal_chain')
     })
 
-    it('routes retrieval requests to retrieval_chain', () => {
-      const decision = routeRequest(makeContext({
+    it('routes retrieval requests to retrieval_chain', async () => {
+      const decision = await routeRequest(makeContext({
         requiresRetrieval: true,
       }))
       expect(decision.mode).toBe('retrieval_chain')
     })
 
-    it('selects a primary model', () => {
-      const decision = routeRequest(makeContext())
+    it('selects a primary model', async () => {
+      const decision = await routeRequest(makeContext())
       expect(decision.primaryModel).toBeDefined()
       if (decision.primaryModel) {
         expect(decision.primaryModel.model_id).toBeTruthy()
@@ -103,20 +103,20 @@ describe('Routing Engine', () => {
       }
     })
 
-    it('provides cost and latency estimates', () => {
-      const decision = routeRequest(makeContext())
+    it('provides cost and latency estimates', async () => {
+      const decision = await routeRequest(makeContext())
       expect(decision.costEstimate).toBeTruthy()
       expect(decision.latencyEstimate).toBeTruthy()
     })
 
-    it('provides fallback models for simple requests', () => {
-      const decision = routeRequest(makeContext())
+    it('provides fallback models for simple requests', async () => {
+      const decision = await routeRequest(makeContext())
       // May or may not have fallbacks depending on model registry
       expect(Array.isArray(decision.fallbackModels)).toBe(true)
     })
 
-    it('handles moderate complexity with specialist or direct mode', () => {
-      const decision = routeRequest(makeContext({
+    it('handles moderate complexity with specialist or direct mode', async () => {
+      const decision = await routeRequest(makeContext({
         taskComplexity: 'moderate',
         taskType: 'content',
       }))
@@ -125,8 +125,8 @@ describe('Routing Engine', () => {
   })
 
   describe('cost-aware routing', () => {
-    it('respects maxCostTier constraint', () => {
-      const decision = routeRequest(makeContext({
+    it('respects maxCostTier constraint', async () => {
+      const decision = await routeRequest(makeContext({
         maxCostTier: 'low',
       }))
       expect(decision).toBeDefined()
@@ -141,14 +141,14 @@ describe('Routing Engine', () => {
   })
 
   describe('app-specific routing', () => {
-    it('routes crypto app differently than marketing app', () => {
-      const cryptoDecision = routeRequest(makeContext({
+    it('routes crypto app differently than marketing app', async () => {
+      const cryptoDecision = await routeRequest(makeContext({
         appSlug: 'amarktai-crypto',
         appCategory: 'finance',
         taskComplexity: 'complex',
         taskType: 'analysis',
       }))
-      const marketingDecision = routeRequest(makeContext({
+      const marketingDecision = await routeRequest(makeContext({
         appSlug: 'amarktai-marketing',
         appCategory: 'marketing',
         taskComplexity: 'complex',
@@ -169,13 +169,13 @@ describe('Routing Engine', () => {
       clearProviderHealthCache()
     })
 
-    it('routes normally when provider health cache is empty', () => {
-      const decision = routeRequest(makeContext())
+    it('routes normally when provider health cache is empty', async () => {
+      const decision = await routeRequest(makeContext())
       expect(decision.primaryModel).toBeDefined()
       expect(decision.mode).toBe('direct')
     })
 
-    it('skips models from unconfigured providers when health cache is populated', () => {
+    it('skips models from unconfigured providers when health cache is populated', async () => {
       // Mark only openai as healthy, everything else as unconfigured
       setProviderHealth('openai', 'healthy')
       setProviderHealth('groq', 'unconfigured')
@@ -187,7 +187,7 @@ describe('Routing Engine', () => {
       setProviderHealth('together', 'unconfigured')
       setProviderHealth('gemini', 'unconfigured')
 
-      const decision = routeRequest(makeContext())
+      const decision = await routeRequest(makeContext())
       expect(decision.primaryModel).toBeDefined()
       expect(decision.primaryModel?.provider).toBe('openai')
       // All fallbacks should also be from openai
@@ -196,7 +196,7 @@ describe('Routing Engine', () => {
       }
     })
 
-    it('skips models from error providers', () => {
+    it('skips models from error providers', async () => {
       setProviderHealth('openai', 'healthy')
       setProviderHealth('groq', 'error')
       setProviderHealth('deepseek', 'error')
@@ -207,12 +207,12 @@ describe('Routing Engine', () => {
       setProviderHealth('together', 'error')
       setProviderHealth('gemini', 'error')
 
-      const decision = routeRequest(makeContext())
+      const decision = await routeRequest(makeContext())
       expect(decision.primaryModel).toBeDefined()
       expect(decision.primaryModel?.provider).toBe('openai')
     })
 
-    it('returns no models when all providers are unhealthy', () => {
+    it('returns no models when all providers are unhealthy', async () => {
       setProviderHealth('openai', 'error')
       setProviderHealth('groq', 'unconfigured')
       setProviderHealth('deepseek', 'error')
@@ -223,12 +223,12 @@ describe('Routing Engine', () => {
       setProviderHealth('together', 'unconfigured')
       setProviderHealth('gemini', 'unconfigured')
 
-      const decision = routeRequest(makeContext())
+      const decision = await routeRequest(makeContext())
       expect(decision.primaryModel).toBeNull()
       expect(decision.warnings.length).toBeGreaterThan(0)
     })
 
-    it('demotes degraded providers in fallback list', () => {
+    it('demotes degraded providers in fallback list', async () => {
       // Mark groq as degraded, openai and deepseek as healthy
       setProviderHealth('openai', 'healthy')
       setProviderHealth('groq', 'configured')
@@ -240,7 +240,7 @@ describe('Routing Engine', () => {
       setProviderHealth('together', 'configured')
       setProviderHealth('gemini', 'configured')
 
-      const normalDecision = routeRequest(makeContext())
+      const normalDecision = await routeRequest(makeContext())
       const normalFallbackProviders = normalDecision.fallbackModels.map(m => m.provider)
 
       // Now degrade groq
@@ -256,7 +256,7 @@ describe('Routing Engine', () => {
       setProviderHealth('gemini', 'configured')
 
       // Verify routing still works with all configured
-      const allConfigured = routeRequest(makeContext())
+      const allConfigured = await routeRequest(makeContext())
       expect(allConfigured.primaryModel).toBeDefined()
       expect(allConfigured.fallbackModels.length).toBeGreaterThan(0)
 
@@ -264,7 +264,7 @@ describe('Routing Engine', () => {
       expect(normalFallbackProviders.length).toBeGreaterThan(0)
     })
 
-    it('escalation skips unhealthy provider', () => {
+    it('escalation skips unhealthy provider', async () => {
       // Set up health where grok (typical escalation target) is unhealthy
       setProviderHealth('openai', 'healthy')
       setProviderHealth('groq', 'configured')
@@ -276,7 +276,7 @@ describe('Routing Engine', () => {
       setProviderHealth('together', 'configured')
       setProviderHealth('gemini', 'configured')
 
-      const decision = routeRequest(makeContext({
+      const decision = await routeRequest(makeContext({
         appSlug: 'amarktai-crypto',
         appCategory: 'finance',
         taskComplexity: 'complex',

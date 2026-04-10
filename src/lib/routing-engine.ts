@@ -129,12 +129,14 @@ export interface RoutingContext {
    * Required modality for the output. When set, routing enforces that the
    * selected model supports the matching capability flag.
    *
-   * - `image`   → model must have `supports_image_generation`
-   * - `video`   → model must have `supports_video_generation` or `supports_video_planning`
-   * - `voice`   → model must have `supports_tts` or `supports_stt` or `supports_voice_interaction`
-   * - `text`    → model must have `supports_chat` (default, no special check)
+   * - `image`      → model must have `supports_image_generation`
+   * - `video`      → model must have `supports_video_generation` or `supports_video_planning`
+   * - `voice`      → model must have `supports_tts` or `supports_stt` or `supports_voice_interaction`
+   * - `embeddings` → model must have `supports_embeddings`
+   * - `moderation` → model must have `supports_moderation`
+   * - `text`       → model must have `supports_chat` (default, no special check)
    */
-  requiredModality?: 'text' | 'image' | 'video' | 'voice'
+  requiredModality?: 'text' | 'image' | 'video' | 'voice' | 'embeddings' | 'moderation'
 }
 
 // ── Constants ───────────────────────────────────────────────────────────
@@ -197,7 +199,7 @@ function getEligibleModels(profile: AppProfile): ModelEntry[] {
  *
  * If no modality is specified, returns all eligible models.
  */
-export function filterByModality(models: ModelEntry[], modality?: 'text' | 'image' | 'video' | 'voice'): ModelEntry[] {
+export function filterByModality(models: ModelEntry[], modality?: 'text' | 'image' | 'video' | 'voice' | 'embeddings' | 'moderation'): ModelEntry[] {
   if (!modality || modality === 'text') return models
 
   switch (modality) {
@@ -207,6 +209,10 @@ export function filterByModality(models: ModelEntry[], modality?: 'text' | 'imag
       return models.filter((m) => m.supports_video_generation === true || m.supports_video_planning === true)
     case 'voice':
       return models.filter((m) => m.supports_tts === true || m.supports_stt === true || m.supports_voice_interaction === true)
+    case 'embeddings':
+      return models.filter((m) => m.supports_embeddings === true)
+    case 'moderation':
+      return models.filter((m) => m.supports_moderation === true)
     default:
       return models
   }
@@ -424,7 +430,7 @@ export function estimateLatency(model: ModelEntry): LatencyEstimate {
  * })
  * ```
  */
-export function routeRequest(context: RoutingContext): RoutingDecision {
+export async function routeRequest(context: RoutingContext): Promise<RoutingDecision> {
   const warnings: string[] = []
   const profile = getAppProfile(context.appSlug)
   let eligible = getEligibleModels(profile)
@@ -442,7 +448,21 @@ export function routeRequest(context: RoutingContext): RoutingDecision {
     }
   }
 
-  // ── 0. Modality enforcement ─────────────────────────────────────────
+  // ── 0a. Budget enforcement ──────────────────────────────────────────
+  // Filter out models whose providers have exceeded their budget critical
+  // threshold BEFORE any capability or preference filtering.
+  try {
+    const budgetFiltered = await filterByBudget(eligible)
+    if (budgetFiltered.length < eligible.length) {
+      const removed = eligible.length - budgetFiltered.length
+      warnings.push(`Budget enforcement removed ${removed} model(s) from over-budget providers.`)
+    }
+    eligible = budgetFiltered
+  } catch {
+    warnings.push('Budget check failed — proceeding with all eligible models.')
+  }
+
+  // ── 0b. Modality enforcement ────────────────────────────────────────
   // When a required modality is specified, filter eligible models to only
   // those that match. If no models match the modality, FAIL immediately.
   if (context.requiredModality && context.requiredModality !== 'text') {

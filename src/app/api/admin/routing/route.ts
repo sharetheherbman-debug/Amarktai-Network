@@ -44,9 +44,9 @@ export async function GET() {
 
     // Generate sample routing decisions for common task types
     const sampleTasks = ['chat', 'code', 'reasoning', 'embeddings', 'vision']
-    const routes = sampleTasks.map(taskType => {
+    const routes = await Promise.all(sampleTasks.map(async taskType => {
       try {
-        const decision = routeRequest({
+        const decision = await routeRequest({
           appSlug: '__dashboard__',
           appCategory: 'generic',
           taskType,
@@ -68,7 +68,7 @@ export async function GET() {
       } catch {
         return { taskType, model: '—', provider: '—', status: 'error', reasoning: 'Routing failed', mode: 'direct', costEstimate: 'unknown', latencyEstimate: 'unknown' }
       }
-    })
+    }))
 
     const capabilityEntries = detailedCapabilities.map((entry) => ({
       capability: entry.capability,
@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
       maxLatencyTier: body.maxLatencyTier,
     }
 
-    const decision = routeRequest(context)
+    const decision = await routeRequest(context)
     return NextResponse.json({ context, decision })
   } catch (err) {
     console.error('[routing] POST error:', err)

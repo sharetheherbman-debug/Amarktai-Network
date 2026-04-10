@@ -64,6 +64,9 @@ export interface AppAgentConfig {
   budgetMode: 'low_cost' | 'balanced' | 'best_quality'
   allowPremiumOnlyWhenNeeded: boolean
 
+  // Capability permissions
+  allowedCapabilities: string[]
+
   // Learning
   learningEnabled: boolean
   autoImprovementEnabled: boolean
@@ -491,8 +494,32 @@ export async function processAppAgentRequest(
     appliedRules.push(`religious:${agent.religiousMode}`)
   }
 
-  // 3. Determine budget-aware model selection hints (stored for future use)
-  const _budgetHint = resolveBudgetHint(agent.budgetMode, request.taskType)
+  // 3. Enforce capability permissions
+  const taskCapability = mapTaskTypeToCapability(request.taskType)
+  if (agent.allowedCapabilities.length > 0 && taskCapability && !agent.allowedCapabilities.includes(taskCapability)) {
+    return {
+      success: false,
+      output: null,
+      traceId,
+      agentId: agent.id,
+      appliedRules,
+      warnings: [],
+      errors: [
+        `Capability "${taskCapability}" is not allowed for this app agent. ` +
+        `Allowed: ${agent.allowedCapabilities.join(', ')}. ` +
+        `Update the agent's allowed capabilities in Admin → App Agents.`,
+      ],
+      routedProvider: null,
+      routedModel: null,
+      latencyMs: Date.now() - start,
+      budgetMode: agent.budgetMode,
+      memoryUsed: false,
+      retrievalUsed: false,
+    }
+  }
+
+  // 4. Budget mode is now passed directly to orchestrator for real enforcement
+  const budgetMode = agent.budgetMode as 'low_cost' | 'balanced' | 'best_quality'
 
   // 4. Build the augmented message with system context
   const augmentedMessage = `[System Instructions]\n${systemPrompt}\n\n[User Message]\n${request.message}`
@@ -506,6 +533,7 @@ export async function processAppAgentRequest(
     appCategory: agent.appType,
     taskType: request.taskType,
     message: augmentedMessage,
+    budgetMode,
   })
 
   return {
@@ -527,26 +555,40 @@ export async function processAppAgentRequest(
 
 // ── Budget Resolution ───────────────────────────────────────────────────────
 
+// ── Capability Permission Helpers ───────────────────────────────────────────
+
+/** Exact match table for task type → capability mapping (module-scoped for performance). */
+const TASK_TYPE_TO_CAPABILITY: Record<string, string> = {
+  chat: 'chat', conversation: 'chat', converse: 'chat',
+  image: 'image_generation', image_generation: 'image_generation', image_gen: 'image_generation',
+  generate_image: 'image_generation', create_image: 'image_generation',
+  stt: 'speech_to_text', speech_to_text: 'speech_to_text', transcribe: 'speech_to_text', transcription: 'speech_to_text',
+  tts: 'text_to_speech', text_to_speech: 'text_to_speech', synthesize: 'text_to_speech', speak: 'text_to_speech',
+  realtime_voice: 'realtime_voice', voice_interaction: 'realtime_voice', realtime: 'realtime_voice',
+  embeddings: 'embeddings', embedding: 'embeddings', embed: 'embeddings', vector: 'embeddings',
+  moderation: 'moderation', moderate: 'moderation', content_moderation: 'moderation',
+  search: 'search', web_search: 'search',
+  video: 'video', video_generation: 'video', video_planning: 'video',
+  code: 'code', coding: 'code',
+  reasoning: 'reasoning', analysis: 'reasoning', research: 'reasoning',
+}
+
 /**
- * Resolve budget-aware routing hints based on the app agent's budget mode.
+ * Map a task type keyword to a canonical capability for permission checking.
+ * Uses exact prefix/suffix matching to avoid false positives (e.g. 'invoice_search').
+ * Returns null if the task type doesn't map to a restricted capability.
  */
-function resolveBudgetHint(
-  budgetMode: string,
-  taskType: string,
-): { costTier: string; allowPremium: boolean } {
-  switch (budgetMode) {
-    case 'low_cost':
-      return { costTier: 'low', allowPremium: false }
-    case 'best_quality':
-      return { costTier: 'premium', allowPremium: true }
-    case 'balanced':
-    default: {
-      // For complex tasks, allow medium tier; otherwise stay low
-      const complexTasks = new Set(['analysis', 'research', 'reasoning', 'code', 'creative'])
-      const isComplex = complexTasks.has(taskType)
-      return { costTier: isComplex ? 'medium' : 'low', allowPremium: isComplex }
-    }
-  }
+function mapTaskTypeToCapability(taskType: string): string | null {
+  const t = taskType.toLowerCase().trim()
+
+  if (TASK_TYPE_TO_CAPABILITY[t]) return TASK_TYPE_TO_CAPABILITY[t]
+
+  // Prefix match for compound types like 'image_edit', 'video_plan'
+  if (t.startsWith('image_') || t.startsWith('generate_image')) return 'image_generation'
+  if (t.startsWith('video_')) return 'video'
+  if (t.startsWith('voice_') || t.startsWith('realtime_')) return 'realtime_voice'
+
+  return null // unknown task types are not restricted
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -591,6 +633,7 @@ function dbRowToConfig(row: any): AppAgentConfig {
     structuredRules: safeJsonParse(row.structuredRules, []),
     budgetMode: row.budgetMode ?? 'balanced',
     allowPremiumOnlyWhenNeeded: row.allowPremiumOnlyWhenNeeded ?? true,
+    allowedCapabilities: safeJsonParse(row.allowedCapabilities, ['chat', 'reasoning', 'code']),
     learningEnabled: row.learningEnabled ?? false,
     autoImprovementEnabled: row.autoImprovementEnabled ?? false,
     adminReviewRequired: row.adminReviewRequired ?? true,

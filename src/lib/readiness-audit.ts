@@ -214,7 +214,7 @@ async function checkCheapRoute(): Promise<AuditCheck> {
     let routingWorks = false
     let routingDetail = ''
     try {
-      const decision = routeRequest({
+      const decision = await routeRequest({
         appSlug: '__readiness_audit__',
         appCategory: 'general',
         taskType: 'chat',
@@ -561,10 +561,10 @@ async function checkRoutingWired(): Promise<AuditCheck> {
  * Verify that all execution modes (agent_chain, retrieval_chain, multimodal_chain)
  * are reachable through the routing engine.
  */
-function checkExecutionModes(): AuditCheck {
+async function checkExecutionModes(): Promise<AuditCheck> {
   try {
     // Test retrieval_chain
-    const retrievalDecision = routeRequest({
+    const retrievalDecision = await routeRequest({
       appSlug: 'amarktai-network',
       appCategory: 'generic',
       taskType: 'recall',
@@ -575,7 +575,7 @@ function checkExecutionModes(): AuditCheck {
     })
 
     // Test multimodal_chain
-    const multimodalDecision = routeRequest({
+    const multimodalDecision = await routeRequest({
       appSlug: 'amarktai-marketing',
       appCategory: 'creative',
       taskType: 'campaign',
@@ -783,7 +783,7 @@ export async function runReadinessAudit(): Promise<ReadinessReport> {
   // Synchronous checks (no DB needed)
   const modelRegistry = checkModelRegistry()
   const agentsRuntime = checkAgentsRuntime()
-  const executionModes = checkExecutionModes()
+  const executionModes = await checkExecutionModes()
 
   const checks: AuditCheck[] = [
     dbConfig,

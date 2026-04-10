@@ -55,7 +55,8 @@ export type ModelRole =
   | 'image_generation'
   | 'video_generation'
   | 'tts'
-  | 'voice_interaction';
+  | 'voice_interaction'
+  | 'moderation';
 
 // ── ModelEntry interface ────────────────────────────────────────────────────
 
@@ -129,6 +130,9 @@ export interface ModelEntry {
   /** Can engage in real-time speech interaction (STT+TTS). */
   supports_voice_interaction?: boolean;
 
+  /** Can perform content moderation / safety classification. */
+  supports_moderation?: boolean;
+
   /** Suitable for multi-step agent / tool-orchestration planning. */
   supports_agent_planning: boolean;
 
@@ -168,7 +172,7 @@ export interface ModelEntry {
    * - `code`       – Code-specialist models
    * - `multimodal` – Vision + generation across modalities
    */
-  category: 'text' | 'image' | 'video' | 'voice' | 'code' | 'multimodal';
+  category: 'text' | 'image' | 'video' | 'voice' | 'code' | 'multimodal' | 'moderation' | 'embeddings';
 }
 
 // ── Registry data ───────────────────────────────────────────────────────────
@@ -912,6 +916,40 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
     validator_eligible: false,
     specialist_domains: ['voice', 'stt', 'transcription', 'multilingual'],
     category: 'voice',
+  },
+
+  // ── OpenAI — moderation ───────────────────────────────────────────────────
+
+  {
+    provider: 'openai',
+    provider_tier: 'premium',
+    model_id: 'omni-moderation-latest',
+    model_name: 'Omni Moderation (Latest)',
+    family: 'Moderation',
+    primary_role: 'moderation',
+    secondary_roles: [],
+    supports_chat: false,
+    supports_reasoning: false,
+    supports_code: false,
+    supports_tool_use: false,
+    supports_multilingual: true,
+    supports_structured_output: false,
+    supports_embeddings: false,
+    supports_reranking: false,
+    supports_vision: false,
+    supports_image_generation: false,
+    supports_video_planning: false,
+    supports_moderation: true,
+    supports_agent_planning: false,
+    context_window: 32_768,
+    latency_tier: 'low',
+    cost_tier: 'very_low',
+    enabled: true,
+    health_status: 'configured',
+    fallback_priority: 1,
+    validator_eligible: false,
+    specialist_domains: ['safety', 'moderation', 'content-filtering'],
+    category: 'moderation',
   },
 
   // ── Groq — speech-to-text (low cost) ────────────────────────────────────

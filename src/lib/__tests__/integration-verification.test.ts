@@ -38,7 +38,7 @@ describe('Integration Verification', () => {
     seedHealthCache()
   })
   describe('Model Registry as Single Source of Truth', () => {
-    it('model registry provides defaults for all providers used in brain.ts', () => {
+    it('model registry provides defaults for all providers used in brain.ts', async () => {
       const brainProviders = ['openai', 'groq', 'deepseek', 'openrouter', 'together', 'grok', 'huggingface', 'nvidia']
       for (const p of brainProviders) {
         const model = getDefaultModelForProvider(p)
@@ -46,13 +46,13 @@ describe('Integration Verification', () => {
       }
     })
 
-    it('model registry does NOT hardcode health_status as healthy', () => {
+    it('model registry does NOT hardcode health_status as healthy', async () => {
       const registry = getModelRegistry()
       const alwaysHealthy = registry.every(m => m.health_status === 'healthy')
       expect(alwaysHealthy, 'All models falsely report healthy — health_status should reflect real state').toBe(false)
     })
 
-    it('model registry covers all providers in preference order lists', () => {
+    it('model registry covers all providers in preference order lists', async () => {
       const registry = getModelRegistry()
       const providers = new Set(registry.map(m => m.provider))
       const orchestratorProviders = ['openai', 'groq', 'deepseek', 'openrouter', 'together', 'grok', 'huggingface', 'nvidia']
@@ -63,7 +63,7 @@ describe('Integration Verification', () => {
   })
 
   describe('Routing Engine Controls Execution', () => {
-    it('routing engine returns valid decisions for all complexity levels', () => {
+    it('routing engine returns valid decisions for all complexity levels', async () => {
       const complexities: Array<'simple' | 'moderate' | 'complex'> = ['simple', 'moderate', 'complex']
       for (const c of complexities) {
         const ctx: RoutingContext = {
@@ -75,7 +75,7 @@ describe('Integration Verification', () => {
           requiresRetrieval: false,
           requiresMultimodal: false,
         }
-        const decision = routeRequest(ctx)
+        const decision = await routeRequest(ctx)
         expect(decision.mode, `No routing mode for complexity: ${c}`).toBeTruthy()
         expect(decision.primaryModel, `No primary model for complexity: ${c}`).toBeDefined()
       }
@@ -93,7 +93,7 @@ describe('Integration Verification', () => {
       }
     })
 
-    it('routing engine handles retrieval_chain mode', () => {
+    it('routing engine handles retrieval_chain mode', async () => {
       const ctx: RoutingContext = {
         appSlug: 'amarktai-network',
         appCategory: 'generic',
@@ -103,11 +103,11 @@ describe('Integration Verification', () => {
         requiresRetrieval: true,
         requiresMultimodal: false,
       }
-      const decision = routeRequest(ctx)
+      const decision = await routeRequest(ctx)
       expect(decision.mode).toBe('retrieval_chain')
     })
 
-    it('routing engine handles multimodal_chain mode', () => {
+    it('routing engine handles multimodal_chain mode', async () => {
       const ctx: RoutingContext = {
         appSlug: 'amarktai-marketing',
         appCategory: 'creative',
@@ -117,11 +117,11 @@ describe('Integration Verification', () => {
         requiresRetrieval: false,
         requiresMultimodal: true,
       }
-      const decision = routeRequest(ctx)
+      const decision = await routeRequest(ctx)
       expect(decision.mode).toBe('multimodal_chain')
     })
 
-    it('routing engine applies app profile escalation rules', () => {
+    it('routing engine applies app profile escalation rules', async () => {
       const ctx: RoutingContext = {
         appSlug: 'amarktai-crypto',
         appCategory: 'finance',
@@ -131,12 +131,12 @@ describe('Integration Verification', () => {
         requiresRetrieval: false,
         requiresMultimodal: false,
       }
-      const decision = routeRequest(ctx)
+      const decision = await routeRequest(ctx)
       // Crypto app has escalation rules for complex analysis
       expect(['premium_escalation', 'consensus', 'review', 'direct']).toContain(decision.mode)
     })
 
-    it('orchestrator classification aligns with routing engine expectations', () => {
+    it('orchestrator classification aligns with routing engine expectations', async () => {
       const simple = classifyTask('generic', 'chat', 'Hi')
       expect(simple.executionMode).toBe('direct')
 
@@ -146,12 +146,12 @@ describe('Integration Verification', () => {
   })
 
   describe('Agent Runtime Connectivity', () => {
-    it('all 18 agents have definitions', () => {
+    it('all 18 agents have definitions', async () => {
       const defs = getAgentDefinitions()
       expect(defs.size).toBe(18)
     })
 
-    it('network app has full agent permissions', () => {
+    it('network app has full agent permissions', async () => {
       const _profile = getAppProfile('amarktai-network')
       const agentTypes = ['planner', 'router', 'validator', 'memory', 'retrieval',
         'creative', 'campaign', 'trading_analyst', 'app_ops', 'learning',
@@ -164,7 +164,7 @@ describe('Integration Verification', () => {
       }
     })
 
-    it('crypto app has restricted agent permissions', () => {
+    it('crypto app has restricted agent permissions', async () => {
       // Crypto app should NOT have all agents
       const profile = getAppProfile('amarktai-crypto')
       expect(profile.agent_permissions).toBeDefined()
@@ -174,7 +174,7 @@ describe('Integration Verification', () => {
   })
 
   describe('Retrieval Engine Integration', () => {
-    it('freshness scoring works correctly', () => {
+    it('freshness scoring works correctly', async () => {
       // Just-created entry should have score near 1.0
       const fresh = computeFreshnessScore(new Date())
       expect(fresh).toBeGreaterThan(0.99)
@@ -185,7 +185,7 @@ describe('Integration Verification', () => {
       expect(aged).toBeCloseTo(0.5, 1)
     })
 
-    it('keyword relevance scoring works', () => {
+    it('keyword relevance scoring works', async () => {
       const score = computeKeywordRelevance('bitcoin market analysis', 'The bitcoin market analysis shows bullish signals')
       expect(score).toBeGreaterThan(0.5)
 
@@ -195,7 +195,7 @@ describe('Integration Verification', () => {
   })
 
   describe('Multimodal Router Readiness', () => {
-    it('supports expected content types', () => {
+    it('supports expected content types', async () => {
       const types = getSupportedContentTypes()
       expect(types).toContain('text')
       expect(types).toContain('image_prompt')
@@ -218,7 +218,7 @@ describe('Integration Verification', () => {
       expect(result.primaryProvider).toBeDefined()
     })
 
-    it('VERIFIED: agent runtime is importable from orchestrator', () => {
+    it('VERIFIED: agent runtime is importable from orchestrator', async () => {
       // orchestrator.ts now imports createAgentTask, executeAgent, handoffTask
       // The agent_chain mode in orchestrate() calls these functions.
       // We can't test the full chain without providers, but we can verify
@@ -228,14 +228,14 @@ describe('Integration Verification', () => {
       expect(defs.has('validator')).toBe(true)
     })
 
-    it('VERIFIED: multimodal router is connected to orchestrator', () => {
+    it('VERIFIED: multimodal router is connected to orchestrator', async () => {
       // orchestrator.ts now imports generateContent from multimodal-router.ts
       // The multimodal_chain mode in orchestrate() calls generateContent().
       const types = getSupportedContentTypes()
       expect(types.length).toBeGreaterThan(5)
     })
 
-    it('VERIFIED: retrieval engine replaces memory.ts in brain route', () => {
+    it('VERIFIED: retrieval engine replaces memory.ts in brain route', async () => {
       // route.ts now imports retrieve() from retrieval-engine.ts
       // instead of retrieveMemory() from memory.ts.
       // The retrieval engine provides scored results with freshness decay.
@@ -245,21 +245,21 @@ describe('Integration Verification', () => {
   })
 
   describe('Health-Aware Model Selection (Phase 1 truthfulness)', () => {
-    it('getUsableModels returns zero when health cache is empty (strict mode)', () => {
+    it('getUsableModels returns zero when health cache is empty (strict mode)', async () => {
       clearProviderHealthCache()
       const usable = getUsableModels()
       // Strict: no health data → all providers unconfigured → 0 usable models
       expect(usable.length).toBe(0)
     })
 
-    it('getUsableModels returns all enabled models when all providers are healthy', () => {
+    it('getUsableModels returns all enabled models when all providers are healthy', async () => {
       // Health cache was seeded in beforeEach
       const usable = getUsableModels()
       const enabled = getEnabledModels()
       expect(usable.length).toBe(enabled.length)
     })
 
-    it('routing engine uses getUsableModels for health-aware selection', () => {
+    it('routing engine uses getUsableModels for health-aware selection', async () => {
       // With health cache seeded, routing should find models
       const ctx: RoutingContext = {
         appSlug: 'amarktai-network',
@@ -270,7 +270,7 @@ describe('Integration Verification', () => {
         requiresRetrieval: false,
         requiresMultimodal: false,
       }
-      const decision = routeRequest(ctx)
+      const decision = await routeRequest(ctx)
       expect(decision.primaryModel).toBeDefined()
     })
   })
