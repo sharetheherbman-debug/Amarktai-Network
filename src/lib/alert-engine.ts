@@ -210,29 +210,26 @@ async function sendAlertEmail(subject: string, body: string): Promise<void> {
   const alertEmail = process.env.ALERT_EMAIL
   if (!smtpHost || !smtpFrom || !alertEmail) return
 
-  // Use nodemailer if installed, otherwise skip silently
+  // Use native fetch to send email via SMTP-to-HTTP bridge if available,
+  // or log the alert for manual review. No external dependency required.
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const nodemailer = require('nodemailer') as {
-      createTransport: (opts: Record<string, unknown>) => {
-        sendMail: (opts: Record<string, string>) => Promise<void>
-      }
+    const emailApiUrl = process.env.EMAIL_API_URL
+    if (emailApiUrl) {
+      await fetch(emailApiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: smtpFrom,
+          to: alertEmail,
+          subject: `[AmarktAI Alert] ${subject}`,
+          text: body,
+        }),
+      })
+    } else {
+      // Fallback: log critical alert to console for operator visibility
+      console.warn(`[AlertEngine] CRITICAL ALERT (no email API): ${subject} — ${body}`)
     }
-    const transport = nodemailer.createTransport({
-      host: smtpHost,
-      port: Number(process.env.SMTP_PORT) || 587,
-      auth: process.env.SMTP_USER ? {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      } : undefined,
-    })
-    await transport.sendMail({
-      from: smtpFrom,
-      to: alertEmail,
-      subject: `[AmarktAI Alert] ${subject}`,
-      text: body,
-    })
   } catch {
-    // Email delivery is best-effort — nodemailer may not be installed
+    // Email delivery is best-effort
   }
 }
