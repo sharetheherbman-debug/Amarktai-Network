@@ -599,7 +599,43 @@ export async function orchestrate(opts: {
     }
   }
 
-  // 5b. Apply provider/model override from app metadata (Phase 2).
+  // 5b. CRITICAL: Hard capability guard — when a non-text modality was required
+  //     but the routing engine found no eligible model, STOP immediately.
+  //     Never silently fall through to a text model for image/voice/video/embeddings/moderation.
+  if (detectedModality !== 'text' && !routingDecision.primaryModel) {
+    const capabilityLabel: Record<string, string> = {
+      image:      'image generation',
+      voice:      'voice/audio',
+      video:      'video generation',
+      embeddings: 'text embeddings',
+      moderation: 'content moderation',
+    }
+    const label = capabilityLabel[detectedModality] ?? detectedModality
+    const checkedProviders = filteredAvailable.map(p => p.providerKey)
+    return {
+      output: null,
+      executionMode: 'direct',
+      routedProvider: null,
+      routedModel: null,
+      confidenceScore: null,
+      validationUsed: false,
+      consensusUsed: false,
+      fallbackUsed: false,
+      memoryUsed: false,
+      warnings: [...decision.warnings, ...routingDecision.warnings],
+      errors: [
+        `No eligible model found for capability: ${label}. ` +
+        `Configure a provider that supports ${label} (e.g. OpenAI for images, Groq/OpenAI for voice). ` +
+        `Providers checked: [${checkedProviders.join(', ') || 'none'}]. ` +
+        `Cross-capability fallback to text models is strictly prohibited.`,
+      ],
+      latencyMs: Date.now() - start,
+      classification,
+      routingReason: routingDecision.reason,
+    }
+  }
+
+  // 5c. Apply provider/model override from app metadata (Phase 2).
   //     Validate the override is actually a configured, usable provider before applying.
   if (providerOverride) {
     const overrideUsable = isProviderUsable(providerOverride)
@@ -770,6 +806,47 @@ export async function orchestrate(opts: {
     // ── Direct / Specialist ─────────────────────────────────────────────
     case 'direct':
     case 'specialist': {
+      // ── Last-line-of-defense capability check ─────────────────────────
+      // Verify the selected model actually supports the required modality.
+      // This catches any edge case where the routing guard above was bypassed
+      // (e.g. by a provider override pointing to a text model for an image task).
+      if (detectedModality !== 'text') {
+        const selectedModel = getModelById(
+          decision.primaryProvider.providerKey,
+          decision.primaryProvider.model,
+        )
+        const capabilityOk = selectedModel
+          ? (detectedModality === 'image'      ? selectedModel.supports_image_generation === true
+           : detectedModality === 'voice'      ? (selectedModel.supports_tts === true || selectedModel.supports_stt === true)
+           : detectedModality === 'embeddings' ? selectedModel.supports_embeddings === true
+           : detectedModality === 'moderation' ? selectedModel.supports_moderation === true
+           : detectedModality === 'video'      ? (selectedModel.supports_video_generation === true || selectedModel.supports_video_planning === true)
+           : true)
+          : false // unknown model — fail safe
+        if (!capabilityOk) {
+          return {
+            output: null,
+            executionMode: 'direct',
+            routedProvider: decision.primaryProvider.providerKey,
+            routedModel: decision.primaryProvider.model,
+            confidenceScore: null,
+            validationUsed: false,
+            consensusUsed: false,
+            fallbackUsed: false,
+            memoryUsed: false,
+            warnings,
+            errors: [
+              `Capability mismatch: model "${decision.primaryProvider.model}" ` +
+              `(${decision.primaryProvider.providerKey}) does not support ${detectedModality}. ` +
+              `Cross-capability execution is strictly prohibited. ` +
+              `Configure a ${detectedModality}-capable provider to enable this feature.`,
+            ],
+            latencyMs: Date.now() - start,
+            classification,
+          }
+        }
+      }
+
       // ── Semantic cache lookup (text-only tasks) ──────────────────────
       // Skip cache for image/TTS/STT/video/embeddings tasks — those return binary/URL outputs
       // that can't be meaningfully cached by text similarity.
