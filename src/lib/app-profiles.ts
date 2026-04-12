@@ -158,8 +158,9 @@ export const DEFAULT_PROFILE: AppProfile = {
   // When only OpenAI is configured, BACKBONE_PROVIDERS would silently exclude it and
   // cause the "no eligible models" fallback even with a valid key.
   allowed_providers: ALL_PROVIDERS,
-  // Empty = wildcard: allow all models from the above providers.
-  // A restrictive list here would filter out OpenAI chat/image models for unknown apps.
+  // Empty array = wildcard (intentional): allow ALL models from the above providers.
+  // A non-empty list would restrict routing to only the listed model IDs, which
+  // would filter out OpenAI chat/image models for unknown-slug requests.
   allowed_models: [],
   preferred_models: ['gpt-4o-mini', 'llama-3.3-70b-versatile', 'deepseek-chat'],
 
