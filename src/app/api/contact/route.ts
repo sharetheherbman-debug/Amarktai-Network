@@ -75,7 +75,9 @@ export async function POST(request: NextRequest) {
   const recipient = process.env.CONTACT_EMAIL ?? 'amarktainetwork@gmail.com'
   const transporter = buildTransporter()
   if (transporter) {
-    const from = process.env.SMTP_FROM ?? `"AmarktAI Network" <${process.env.SMTP_USER ?? 'noreply@amarktai.network'}>`
+    // SMTP_FROM should always be set alongside SMTP_HOST; fall back to a clearly
+    // labelled address so the From header is never empty or malformed.
+    const from = process.env.SMTP_FROM ?? 'AmarktAI Network <noreply@amarktai.network>'
     const subject = `[AmarktAI Enquiry] ${data.name}${data.companyOrProject ? ` — ${data.companyOrProject}` : ''}`
     const text = [
       `Name:         ${data.name}`,

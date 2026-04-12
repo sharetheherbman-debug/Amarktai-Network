@@ -51,6 +51,25 @@ import { generateContent, type MultimodalResult } from '@/lib/multimodal-router'
 import { getAppProfileFromDb, runtimeProfileOverrides } from '@/lib/app-profiles'
 import { recordPerformance, loadSmartRouterState } from '@/lib/smart-router'
 import { lookupCache, storeInCache } from '@/lib/semantic-cache'
+import type { ModelEntry } from '@/lib/model-registry'
+
+/**
+ * Check whether a model supports the given modality.
+ * Returns true for text (no restriction) or when the model carries
+ * the corresponding capability flag. Returns false (fail-safe) for
+ * unknown models (null/undefined).
+ */
+function checkModalitySupport(model: ModelEntry | null | undefined, modality: string): boolean {
+  if (!model) return false // unknown model — fail safe
+  switch (modality) {
+    case 'image':      return model.supports_image_generation === true
+    case 'voice':      return model.supports_tts === true || model.supports_stt === true
+    case 'embeddings': return model.supports_embeddings === true
+    case 'moderation': return model.supports_moderation === true
+    case 'video':      return model.supports_video_generation === true || model.supports_video_planning === true
+    default:           return true
+  }
+}
 
 // Consensus synthesizer: prefer longer response if it exceeds primary by this ratio
 const CONSENSUS_LENGTH_RATIO_THRESHOLD = 1.2
@@ -815,14 +834,7 @@ export async function orchestrate(opts: {
           decision.primaryProvider.providerKey,
           decision.primaryProvider.model,
         )
-        const capabilityOk = selectedModel
-          ? (detectedModality === 'image'      ? selectedModel.supports_image_generation === true
-           : detectedModality === 'voice'      ? (selectedModel.supports_tts === true || selectedModel.supports_stt === true)
-           : detectedModality === 'embeddings' ? selectedModel.supports_embeddings === true
-           : detectedModality === 'moderation' ? selectedModel.supports_moderation === true
-           : detectedModality === 'video'      ? (selectedModel.supports_video_generation === true || selectedModel.supports_video_planning === true)
-           : true)
-          : false // unknown model — fail safe
+        const capabilityOk = checkModalitySupport(selectedModel, detectedModality)
         if (!capabilityOk) {
           return {
             output: null,

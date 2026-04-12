@@ -252,6 +252,7 @@ export default function IntegrationsPage() {
                       <div className="relative">
                         <input
                           type={showKey ? 'text' : 'password'}
+                          autoComplete="new-password"
                           value={formKey}
                           onChange={e => setFormKey(e.target.value)}
                           placeholder={intg.configured ? 'Leave blank to keep existing key' : 'Enter API key…'}
