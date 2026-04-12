@@ -436,6 +436,12 @@ function ProvidersView({ providers, onRefresh }: { providers: Provider[]; onRefr
                 {/* API Key row */}
                 <div className="space-y-2">
                   <label className="text-[10px] uppercase tracking-wider text-slate-500 font-mono">API Key</label>
+                  {/* HuggingFace note: distinguish provider key from integration key */}
+                  {p.providerKey === 'huggingface' && (
+                    <p className="text-[10px] text-amber-400/70 leading-relaxed">
+                      This key enables AI routing via the HuggingFace Inference API (chat, embeddings, image models). A separate HuggingFace key in <strong>Integrations</strong> controls emotion enrichment only — these are independent.
+                    </p>
+                  )}
                   {/* Show masked preview when no edit in progress */}
                   {!keyDirty && (
                     <div className="flex items-center gap-2 text-xs text-slate-400 font-mono bg-white/[0.02] border border-white/[0.06] rounded-lg px-3 py-2">

@@ -37,7 +37,12 @@ export async function syncProviderHealthFromDB(): Promise<void> {
     const configuredKeys = new Set<string>();
     for (const p of dbProviders) {
       if (p.apiKey) {
-        setProviderHealth(p.providerKey, p.healthStatus as ProviderHealthStatus);
+        // Upgrade 'unconfigured' → 'configured': a provider with an API key is at
+        // minimum configured even if no health check has run yet. This ensures
+        // getUsableModels() / isProviderUsable() treat it as routable.
+        const status: ProviderHealthStatus =
+          p.healthStatus === 'unconfigured' ? 'configured' : (p.healthStatus as ProviderHealthStatus);
+        setProviderHealth(p.providerKey, status);
         configuredKeys.add(p.providerKey);
       }
     }
