@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
           .filter((m) => m.provider === 'openai' && m.supports_image_generation)
           .map((m) => m.model_id),
       );
-      // Also keep DALL-E entries which are not in the static registry under every run.
+      // Also keep DALL-E entries which may not appear in the usable pool when provider health is not yet synced.
       const candidates = modelCandidates.filter(
         (m) => enabledImageModelIds.has(m) || m === 'dall-e-3' || m === 'dall-e-2',
       );
@@ -201,7 +201,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         executed: false,
-        success: false,
         capability: 'image_generation',
         code: 'no_eligible_image_model',
         error:
