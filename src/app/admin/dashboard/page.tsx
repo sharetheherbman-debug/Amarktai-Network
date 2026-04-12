@@ -63,6 +63,7 @@ interface ProviderSummary {
   healthStatus: string
   healthMessage: string
   lastCheckedAt: string | null
+  launchRequired?: boolean
 }
 
 interface MemoryStatusData {
@@ -472,8 +473,8 @@ export default function DashboardOverview() {
                 const healthy = providers.filter(p => p.healthStatus === 'healthy')
                 const withErrors = providers.filter(p => p.healthStatus === 'error')
                 // Split errors into blocking (required) and informational (optional)
-                const blockingErrors = withErrors.filter(p => (p as { launchRequired?: boolean }).launchRequired)
-                const optionalErrors = withErrors.filter(p => !(p as { launchRequired?: boolean }).launchRequired)
+                const blockingErrors = withErrors.filter(p => p.launchRequired)
+                const optionalErrors = withErrors.filter(p => !p.launchRequired)
                 if (providers.length === 0) {
                   return (
                     <div className="py-3 text-center rounded-lg bg-amber-500/5 border border-amber-500/10">

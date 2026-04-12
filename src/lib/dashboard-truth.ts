@@ -485,7 +485,7 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
   // Implemented = total minus not-implemented (the denominator for cap score)
   const implementedCaps = totalCapabilities - notImplemented;
   const providerScore =
-    totalRequiredProviders > 0 ? activeRequiredProviders / totalRequiredProviders : 1;
+    totalRequiredProviders > 0 ? activeRequiredProviders / totalRequiredProviders : 0;
   const capScore =
     implementedCaps > 0 ? availableCapabilities / implementedCaps : 0;
   const modelScore = totalModels > 0 ? usableModels / totalModels : 0;
