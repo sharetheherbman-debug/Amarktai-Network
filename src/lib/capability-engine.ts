@@ -383,7 +383,7 @@ export function resolveCapabilityRoutes(
     }
 
     // Realtime voice requires separate WebSocket service to be running
-    if (cap === 'realtime_voice' && !process.env.REALTIME_SERVICE_URL) {
+    if (cap === 'realtime_voice' && !process.env.REALTIME_SERVICE_URL?.trim()) {
       const msg =
         'Realtime voice service not configured: set REALTIME_SERVICE_URL to the running WebSocket service (see services/realtime/). ' +
         'The session endpoint (/api/realtime/session) exists but the streaming service must be running separately.';
@@ -514,13 +514,13 @@ const BACKEND_ROUTE_EXISTS: Record<CapabilityClass, boolean> = {
   agent_planning:            true,   // /api/brain/request (agent_chain)
   multimodal_understanding:  true,   // /api/brain/request (multimodal_chain)
   image_generation:          true,   // /api/brain/request (DALL-E / FLUX)
-  image_editing:             false,  // NOT IMPLEMENTED: no inpaint/mask backend; image generation only via /api/brain/image
+  image_editing:             true,   // /api/brain/image-edit (OpenAI DALL-E 2 inpainting + HuggingFace SD-inpainting)
   video_planning:            true,   // /api/brain/request (AI text — always possible via chat models)
   video_generation:          true,   // /api/brain/video-generate (async job pipeline — Replicate / HuggingFace)
   voice_input:               true,   // /api/brain/stt + /api/voice/stt (Groq Whisper / OpenAI Whisper / Gemini Live / HuggingFace Whisper)
   voice_output:              true,   // /api/brain/tts + /api/voice/tts (Groq PlayAI / OpenAI TTS / Gemini TTS / HuggingFace MMS)
   realtime_voice:            true,   // /api/realtime/session (session config) + separate WS service (services/realtime)
-  adult_18plus_image:        false,  // NOT IMPLEMENTED: no policy-compliant provider integrated; use suggestive_image_generation instead
+  adult_18plus_image:        true,   // /api/brain/adult-image (HuggingFace — adultMode gated, ALWAYS_BLOCKED enforced)
   moderation:                true,   // /api/brain/request (OpenAI moderation)
   app_analysis:              true,   // /api/brain/request
   research_search:           true,   // /api/brain/request + /api/brain/research

@@ -59,6 +59,8 @@ export interface ProviderTruth {
   displayName: string;
   state: ProviderState;
   isActive: boolean;
+  /** True when this provider must be configured for the platform to launch. */
+  launchRequired: boolean;
   healthStatus: string;
   healthMessage: string;
   lastCheckedAt: string | null;
@@ -160,6 +162,7 @@ export async function getProviderTruth(): Promise<ProviderTruth[]> {
       displayName: cp.displayName,
       state,
       isActive: state === 'HEALTHY' || state === 'CONFIGURED',
+      launchRequired: cp.launchRequired,
       healthStatus,
       healthMessage,
       lastCheckedAt: db?.lastCheckedAt?.toISOString() ?? null,
@@ -199,7 +202,7 @@ const CAPABILITY_META: Record<
   deep_reasoning: { displayName: 'Deep Reasoning', category: 'text', routeExists: true },
   coding: { displayName: 'Coding Assistant', category: 'code', routeExists: true },
   image_generation: { displayName: 'Image Generation', category: 'image', routeExists: true },
-  image_editing: { displayName: 'Image Editing', category: 'image', routeExists: false },
+  image_editing: { displayName: 'Image Editing', category: 'image', routeExists: true },
   voice_stt: { displayName: 'Speech-to-Text', category: 'voice', routeExists: true },
   voice_tts: { displayName: 'Text-to-Speech', category: 'voice', routeExists: true },
   realtime_voice: { displayName: 'Realtime Voice', category: 'voice', routeExists: true },
@@ -222,6 +225,7 @@ const CAPABILITY_META: Record<
   summarization: { displayName: 'Summarization', category: 'text', routeExists: true },
   code_review: { displayName: 'Code Review', category: 'code', routeExists: true },
   moderation: { displayName: 'Content Moderation', category: 'safety', routeExists: true },
+  adult_18plus_image: { displayName: 'Adult 18+ Image Gen', category: 'adult', routeExists: true },
 };
 
 /** Capabilities gated behind safety settings (suggestive_*). */
@@ -270,6 +274,9 @@ const CAP_TO_MODEL_FLAG: Record<string, string> = {
   suggestive_video_planning: 'supports_video_planning',
   suggestive_video_generation: 'supports_video_generation',
   moderation: 'supports_moderation',
+  // adult_18plus_image uses HuggingFace image models; checking supports_image_generation
+  // is a reasonable proxy since the HF inference API handles the actual generation.
+  adult_18plus_image: 'supports_image_generation',
 };
 
 /**
@@ -313,6 +320,18 @@ export async function getCapabilityTruth(
       state = 'BLOCKED_BY_SETTINGS';
       implementationState = 'BLOCKED_BY_SETTINGS';
       reason = 'Capability is gated by safety settings (suggestive_mode).';
+    } else if (cap === 'realtime_voice' && !process.env.REALTIME_SERVICE_URL?.trim()) {
+      // Realtime voice requires a separately-deployed WebSocket service in
+      // addition to an OpenAI provider. Without REALTIME_SERVICE_URL the
+      // session endpoint exists but streaming cannot work.
+      // implementationState: 'IMPLEMENTED_IN_PLATFORM' — route + model exist,
+      // the platform has the feature, but the external service is not configured.
+      state = 'UNAVAILABLE_WITH_CURRENT_CONFIG';
+      implementationState = 'IMPLEMENTED_IN_PLATFORM';
+      reason =
+        'Realtime voice service not configured: set REALTIME_SERVICE_URL to the running ' +
+        'WebSocket service (see services/realtime/). The session endpoint ' +
+        '(/api/realtime/session) exists but streaming requires the separate service.';
     } else if (hasCapableModel && hasActiveProvider) {
       state = 'AVAILABLE_NOW';
       implementationState = 'ACTIVE_NOW';
@@ -423,10 +442,13 @@ export interface DashboardSummary {
 
 /**
  * Aggregate dashboard summary derived entirely from the truth functions above.
- * `systemHealth` is a 0-100 weighted score:
- *   40 % — active providers / total providers
+ * `systemHealth` is a 0-100 weighted score based on *required* providers only:
+ *   40 % — active required providers / total required providers
  *   35 % — available capabilities / implemented capabilities
  *   25 % — usable models / total models
+ *
+ * Optional providers are counted separately and do not affect the health score
+ * denominator — their errors show as informational warnings, not blockers.
  */
 export async function getDashboardSummary(): Promise<DashboardSummary> {
   const [providers, capabilities] = await Promise.all([
@@ -440,6 +462,12 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
   const configuredProviders = providers.filter(
     (p) => p.state !== 'AVAILABLE_IN_CATALOG',
   ).length;
+
+  // Provider health score uses only launch-required providers so that optional
+  // provider errors (e.g. Hugging Face 401) do not poison the system score.
+  const requiredProviders = providers.filter((p) => p.launchRequired);
+  const activeRequiredProviders = requiredProviders.filter((p) => p.isActive).length;
+  const totalRequiredProviders = requiredProviders.length;
 
   const totalModels = models.length;
   const usableModels = models.filter((m) => m.isUsableNow).length;
@@ -461,7 +489,7 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
   // Implemented = total minus not-implemented (the denominator for cap score)
   const implementedCaps = totalCapabilities - notImplemented;
   const providerScore =
-    totalProviders > 0 ? activeProviders / totalProviders : 0;
+    totalRequiredProviders > 0 ? activeRequiredProviders / totalRequiredProviders : 0;
   const capScore =
     implementedCaps > 0 ? availableCapabilities / implementedCaps : 0;
   const modelScore = totalModels > 0 ? usableModels / totalModels : 0;
