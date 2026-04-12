@@ -6,6 +6,7 @@ import {
   getModelTruth,
   getDashboardSummary,
 } from '@/lib/dashboard-truth'
+import { syncProviderHealthFromDB } from '@/lib/sync-provider-health'
 
 /**
  * GET /api/admin/truth — returns unified dashboard truth state.
@@ -26,6 +27,10 @@ export async function GET(request: Request) {
   const appSlug = searchParams.get('appSlug') || undefined
 
   try {
+    // Sync the in-process provider health cache from DB so that getModelTruth()
+    // and isProviderUsable() reflect real configuration state.
+    await syncProviderHealthFromDB()
+
     const result: Record<string, unknown> = {}
 
     if (section === 'all' || section === 'summary') {

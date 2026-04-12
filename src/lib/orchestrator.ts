@@ -281,9 +281,16 @@ async function loadAvailableProviders(): Promise<AvailableProvider[]> {
 function syncProviderHealthCache(available: AvailableProvider[]): void {
   const configuredKeys = new Set(available.map(p => p.providerKey))
 
-  // Mark configured providers with their real DB health status
+  // Mark configured providers with their real DB health status.
+  // If healthStatus is 'unconfigured' (no health check run yet) but the
+  // provider has an API key, upgrade it to 'configured' so the routing
+  // engine treats it as usable. A provider with a key is at minimum
+  // configured — it should never be excluded from routing just because
+  // no health check has been run yet.
   for (const p of available) {
-    setProviderHealth(p.providerKey, p.healthStatus as ProviderHealthStatus)
+    const status: ProviderHealthStatus =
+      p.healthStatus === 'unconfigured' ? 'configured' : (p.healthStatus as ProviderHealthStatus)
+    setProviderHealth(p.providerKey, status)
   }
 
   // Mark all other known provider keys as unconfigured
