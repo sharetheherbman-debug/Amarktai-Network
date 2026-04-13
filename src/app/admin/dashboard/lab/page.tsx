@@ -195,11 +195,23 @@ export default function LabPage() {
       if (!res.ok && data.routedProvider == null && !(Array.isArray(data.capability) && data.capability.length > 0)) {
         throw new Error(data.error || `HTTP ${res.status}`)
       }
+      // Image-class guard: if the capability is image-related but the backend
+      // returned text output without an imageUrl, treat it as an execution failure
+      // rather than a success. This prevents a chat-model text response from
+      // appearing as a successful image generation.
+      const IMAGE_CLASS_CAPABILITIES = new Set([
+        'image_generation', 'image_editing', 'adult_18plus_image', 'suggestive_image_generation',
+      ])
+      const resolvedCapabilities: string[] = Array.isArray(data.capability) ? data.capability : []
+      const resolvedImageUrl: string | null = data.imageUrl ?? data.image_url ?? null
+      const isImageClassResponse = resolvedCapabilities.some((c: string) => IMAGE_CLASS_CAPABILITIES.has(c))
+      const imageClassWithoutImage = isImageClassResponse && !resolvedImageUrl && !!data.output && typeof data.output === 'string'
+
       setResult({
-        success: data.success ?? res.ok,
-        executed: data.executed ?? (data.success ?? false),
-        output: data.output ?? null,
-        capability: Array.isArray(data.capability) ? data.capability : [],
+        success: imageClassWithoutImage ? false : (data.success ?? res.ok),
+        executed: imageClassWithoutImage ? false : (data.executed ?? (data.success ?? false)),
+        output: imageClassWithoutImage ? null : (data.output ?? null),
+        capability: resolvedCapabilities,
         capabilityRoutes: data.capabilityRoutes,
         routedProvider: data.routedProvider ?? null,
         routedModel: data.routedModel ?? null,
@@ -211,9 +223,11 @@ export default function LabPage() {
         fallback_used: data.fallback_used ?? false,
         routingReason: data.routingReason,
         warnings: Array.isArray(data.warnings) ? data.warnings : [],
-        error: data.error ?? null,
+        error: imageClassWithoutImage
+          ? `Image generation executed through a chat model (${data.routedModel ?? 'unknown'}) — text output is not a valid image. Check provider/model dispatch.`
+          : (data.error ?? null),
         latencyMs: data.latencyMs ?? 0,
-        imageUrl: data.imageUrl ?? data.image_url ?? null,
+        imageUrl: resolvedImageUrl,
         audioUrl: data.audioUrl ?? data.audio_url ?? null,
         videoStatus: data.videoStatus ?? data.video_status ?? null,
         sources: Array.isArray(data.sources)
