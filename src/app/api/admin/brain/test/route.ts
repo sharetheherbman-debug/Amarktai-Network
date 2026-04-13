@@ -325,7 +325,9 @@ export async function POST(request: NextRequest) {
     })
     return NextResponse.json(
       {
-        success: result.ok, executed: result.ok, traceId, output: result.output,
+        success: result.ok, executed: result.ok, traceId,
+        output: result.imageUrl ? '[Image generated]' : result.output,
+        imageUrl: result.imageUrl ?? null,
         capability: capabilities, routedProvider: body.providerKey, routedModel: result.model,
         executionMode: 'direct', confidenceScore: null, fallbackUsed: false, fallback_used: false,
         error: result.error ?? null, latencyMs, timestamp: new Date().toISOString(),

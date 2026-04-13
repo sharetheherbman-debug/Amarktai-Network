@@ -134,6 +134,7 @@ function defaultModelFor(providerKey: string): string {
 export interface ProviderCallResult {
   ok: boolean
   output: string | null
+  imageUrl?: string | null
   error: string | null
   latencyMs: number
   model: string
@@ -282,8 +283,12 @@ export async function callProvider(
             return { ok: false, output: null, error: `OpenAI Images API HTTP ${imgRes.status}: ${errBody?.error?.message ?? 'request failed'}`, latencyMs: Date.now() - start, model: resolvedModel, providerKey }
           }
           const imgData = await imgRes.json() as { data?: Array<{ url?: string; b64_json?: string }> }
-          const imageUrl = imgData?.data?.[0]?.url ?? imgData?.data?.[0]?.b64_json ?? null
-          return { ok: true, output: imageUrl, error: null, latencyMs: Date.now() - start, model: resolvedModel, providerKey }
+          const rawUrl = imgData?.data?.[0]?.url ?? null
+          const rawB64 = imgData?.data?.[0]?.b64_json ?? null
+          // Return a proper data URL for base64 payloads so callers can render
+          // the image directly without further transformation.
+          const imageUrl = rawUrl ?? (rawB64 ? `data:image/png;base64,${rawB64}` : null)
+          return { ok: true, output: imageUrl, imageUrl, error: null, latencyMs: Date.now() - start, model: resolvedModel, providerKey }
         }
         const res = await fetch(`${base}/v1/chat/completions`, {
           method: 'POST',

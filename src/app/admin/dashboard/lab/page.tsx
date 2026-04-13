@@ -200,17 +200,43 @@ export default function LabPage() {
       // rather than a success. This prevents a chat-model text response from
       // appearing as a successful image generation.
       const IMAGE_CLASS_CAPABILITIES = new Set([
-        'image_generation', 'image_editing', 'adult_18plus_image', 'suggestive_image_generation',
+        'image', 'image_generation', 'image_editing', 'adult_18plus_image', 'suggestive_image_generation',
       ])
       const resolvedCapabilities: string[] = Array.isArray(data.capability) ? data.capability : []
-      const resolvedImageUrl: string | null = data.imageUrl ?? data.image_url ?? null
+
+      // Normalise all possible image-data shapes to a displayable data URL.
+      // Handles: imageUrl (data: or https:), imageBase64 (data: URL), b64_json
+      // (raw base64 from some providers), and output (raw base64 that some code
+      // paths return when forceProvider bypasses the specialist executor).
+      const toDataUrl = (v: unknown): string | null => {
+        if (typeof v !== 'string' || !v) return null
+        if (v.startsWith('data:image/') || v.startsWith('https://') || v.startsWith('http://')) return v
+        // Raw base64 PNG (magic: iVBOR), JPEG (/9j/), GIF (R0lGOD), WebP (UklGR)
+        if (v.startsWith('iVBOR')) return `data:image/png;base64,${v}`
+        if (v.startsWith('/9j/')) return `data:image/jpeg;base64,${v}`
+        if (v.startsWith('R0lGOD')) return `data:image/gif;base64,${v}`
+        if (v.startsWith('UklGR')) return `data:image/webp;base64,${v}`
+        return null
+      }
+      const resolvedImageUrl: string | null =
+        toDataUrl(data.imageUrl) ??
+        toDataUrl(data.image_url) ??
+        toDataUrl(data.imageBase64) ??
+        toDataUrl(data.b64_json) ??
+        toDataUrl(data.output) ??
+        null
+
+      // Only fire the "image without URL" guard when output is plain text (not
+      // base64 image data that we've already resolved above).
       const isImageClassResponse = resolvedCapabilities.some((c: string) => IMAGE_CLASS_CAPABILITIES.has(c))
+      const outputIsExtractedImage = resolvedImageUrl !== null && toDataUrl(data.output) !== null
       const imageClassWithoutImage = isImageClassResponse && !resolvedImageUrl && !!data.output && typeof data.output === 'string'
 
       setResult({
         success: imageClassWithoutImage ? false : (data.success ?? res.ok),
         executed: imageClassWithoutImage ? false : (data.executed ?? (data.success ?? false)),
-        output: imageClassWithoutImage ? null : (data.output ?? null),
+        // Don't dump raw base64 into the text area — clear output when we have an image
+        output: (imageClassWithoutImage || outputIsExtractedImage) ? null : (data.output ?? null),
         capability: resolvedCapabilities,
         capabilityRoutes: data.capabilityRoutes,
         routedProvider: data.routedProvider ?? null,
@@ -279,7 +305,7 @@ export default function LabPage() {
 
   /** Download a generated image by its URL (data: or https:). */
   const handleImageDownload = async (url: string) => {
-    const filename = `generated-image-${Date.now()}.png`
+    const filename = `amarktai-image-${Date.now()}.png`
     if (url.startsWith('data:')) {
       const a = document.createElement('a')
       a.href = url
